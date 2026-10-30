@@ -1,0 +1,15 @@
+# Scilab
+*.bin
+*.sod
+lib
+names
+
+# Python
+__pycache__/
+.venv/
+
+# Results of local runs
+results/
+
+# Software in the loop: compiled library (rebuilt by sil_build)
+sil/build/
