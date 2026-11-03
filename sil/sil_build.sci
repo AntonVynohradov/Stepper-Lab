@@ -55,6 +55,8 @@ function sil_build(backend, force)
                listfiles(fullfile(cdir, "inc", "*.h"));
                listfiles(fullfile(cdir, "src", "*.h"));
                listfiles(fullfile(cdir, "src", "*.c"));
+               fullfile(sim_root_g, "sil", "c", "sstep_plant.h");
+               fullfile(sim_root_g, "sil", "c", "sstep_plant.c");
                fullfile(sim_root_g, "sil", "c", "sstep_xcos.c")];
     catch
         if ~isfile(loader) then
@@ -108,7 +110,10 @@ function sil_build(backend, force)
         if getos() == "Windows" then
             if findmsvccompiler() <> "unknown" then
                 ldflags = """" + SCI + "/bin/scicos.lib""";
+                cflags = cflags + " /std:c11";      // Stepper-C needs C11 (_Static_assert)
             end
+        else
+            cflags = cflags + " -std=gnu11";
         end
         mprintf("Building Stepper-C (%s) and the Xcos blocks in %s\n", backend, bdir);
         tbx_build_src(["sstep_xcos_ctrl", "sstep_xcos_plant", "sstep_xcos_monitor", ..

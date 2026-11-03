@@ -5,11 +5,15 @@
  * Description: Xcos computational functions (type 4) for software-in-the-loop:
  *              - sstep_xcos_ctrl:    the Stepper-C library (fast and slow loop),
  *              - sstep_xcos_plant:   power stage (averaged or switching with dead
- *                                    time and diodes) + motor + ADC (RK4),
+ *                                    time and diodes) + motor + ADC (RK4): a thin
+ *                                    wrapper of sstep_plant.c, the model shared
+ *                                    with the firmware simulation,
  *              - sstep_xcos_monitor: signals for scopes and the workspace,
  *              - sstep_xcos_check:   configuration check, called from Scilab.
  *              The motor and the power stage use the same equations as the
  *              Scilab prototype (model directory) and the Stepper-C unit tests.
+ *              The monitor reads the setpoint of the library through its internal
+ *              header (sstep_internal.h, copied into the build by sil_build).
  *
  * Author:      Anton Vynohradov
  * Email:       avynohradov@systemfromscratch.com
@@ -25,6 +29,8 @@
 
 #include "scicos_block4.h"
 #include "sstep.h"
+#include "sstep_internal.h"
+#include "sstep_plant.h"
 
 /* Functions of the Scilab scicos library (scicos.h needs more Scilab headers) */
 extern void Coserror(const char* fmt, ...);
@@ -41,6 +47,7 @@ enum
     C_TOPO, C_VNOM, C_VMIN, C_VMAX, C_IFULL, C_ITRIP, C_PERIOD, C_PWMHZ, C_DEAD,
     C_ADC_ZERO, C_ADC_SPAN, C_ADC_VFULL, C_ADC_FULL,
     C_DRIVE, C_FAST, C_SLOW, C_MICRO, C_BW, C_IRUN, C_IHOLD, C_HOLDMS, C_VMAXS, C_ACC, C_DEC,
+    C_STALL_MS, C_STALL_FILT, C_STALL_SPEED, C_STALL_SYNC, /* stall detection (1.1.0) */
     C_NCMD,
     C_NPAR /* commands follow: t, kind, value */
 };
@@ -52,8 +59,9 @@ enum
     P_TOPO, P_VBUS, P_PERIOD, P_IFULL, P_SPAN, P_ZERO, P_VFULL, P_ADC_FULL,
     P_FS, P_NSUB, P_LOCKED,
     P_STAGE, P_DEAD_NS, P_RDS, P_VD, P_SW_NSTEP, /* power stage model, bridge_switching.sci */
+    P_NERR,  /* points of the leg voltage error table (averaged stage), 0 = none */
     P_NLOAD,
-    P_NPAR /* load steps follow: t, TL */
+    P_NPAR /* load steps follow: t, TL; then the leg error table: i(P_NERR), v(P_NERR) */
 };
 
 #define CMD_MOVE 1
@@ -104,6 +112,7 @@ static uint32_t u32(double v)
 
 static void make_config(const double* p, struct sstep_config* c, void* ctx)
 {
+    *c = (struct sstep_config){0}; /* fields of later versions keep their default */
     c->motor.r_mohm = u32(p[C_R_MOHM]);
     c->motor.l_uh = u32(p[C_L_UH]);
     c->motor.i_rated_ma = u32(p[C_I_RATED]);
@@ -133,6 +142,10 @@ static void make_config(const double* p, struct sstep_config* c, void* ctx)
     c->ctrl.v_max = u32(p[C_VMAXS]);
     c->ctrl.accel = u32(p[C_ACC]);
     c->ctrl.decel = u32(p[C_DEC]);
+    c->ctrl.stall_time_ms = u32(p[C_STALL_MS]);
+    c->ctrl.stall_filter_us = u32(p[C_STALL_FILT]);
+    c->ctrl.stall_speed = u32(p[C_STALL_SPEED]);
+    c->ctrl.stall_sync_pct = (uint16_t)u32(p[C_STALL_SYNC]);
     c->hal.context = ctx;
     c->hal.pwm_write = hal_pwm;
     c->hal.output_enable = hal_enable;
@@ -193,7 +206,9 @@ static int apply_command(struct sil_ctrl* s, int kind, double value)
 /* Inputs:  1 ADC sample [i_a i_b vbus] (counts)
  * Outputs: 1 [compare(4) enabled]
  *          2 [phi(rad, unwrapped) position(usteps) velocity(usteps/s) state faults
- *             iA_ref(A) iB_ref(A)]
+ *             iA_ref(A) iB_ref(A) emf_d(mV) emf_q(mV) rotor_velocity(usteps/s)
+ *             load_angle(cdeg) stall_level(%)], the last five from the stall
+ *             detector (sstep_get_status, 0 when it is off)
  * Activation: one event input at the fast loop rate (fs). */
 void sstep_xcos_ctrl(scicos_block* blk, scicos_flag flag)
 {
@@ -266,7 +281,8 @@ void sstep_xcos_ctrl(scicos_block* blk, scicos_flag flag)
         s->tick++;
 
         /* angle used in this period: the fast loop advances it after use */
-        used = s->drv.cur.angle - (uint32_t)s->drv.cur.dangle;
+        const struct sstep_ctx* ctx = sstep_ctx_of_const(&s->drv);
+        used = ctx->cur.angle - (uint32_t)ctx->cur.dangle;
         s->phi_turns += (int32_t)(used - s->phi_last);
         s->phi_last = used;
 
@@ -278,7 +294,7 @@ void sstep_xcos_ctrl(scicos_block* blk, scicos_flag flag)
 
         (void)sstep_get_status(&s->drv, &st);
         ang = (double)used * (2.0 * PI_D / 4294967296.0);
-        amp = real_to_d(s->drv.cur.i_amp) * s->i_full;
+        amp = real_to_d(ctx->cur.i_amp) * s->i_full;
         mon[0] = (double)s->phi_turns * (2.0 * PI_D / 4294967296.0);
         mon[1] = (double)st.position;
         mon[2] = (double)st.velocity;
@@ -286,6 +302,11 @@ void sstep_xcos_ctrl(scicos_block* blk, scicos_flag flag)
         mon[4] = (double)st.faults;
         mon[5] = amp * cos(ang);
         mon[6] = amp * sin(ang);
+        mon[7] = (double)st.emf_d_mv;
+        mon[8] = (double)st.emf_q_mv;
+        mon[9] = (double)st.rotor_velocity;
+        mon[10] = (double)st.load_angle_cdeg;
+        mon[11] = (double)st.stall_level_pct;
     }
     else if (flag == Ending)
     {
@@ -311,276 +332,118 @@ void sstep_xcos_check(double* rpar, int* n, int* err)
 }
 
 /* ==============================================================================
- * PLANT BLOCK: power stage, motor (RK4), ADC
+ * PLANT BLOCK: power stage, motor (RK4), ADC - the model is sstep_plant.c
  * =============================================================================*/
 
-#define Z_DUTY 6   /* z[6..9]  leg duties of the next period */
-#define Z_EN 10    /* z[10]    outputs enabled in the next period */
-#define Z_PEAK 11  /* z[11..12] largest |iA|, |iB| in the last period */
+/* Discrete state of the diagram block (xcos/blocks): kept for the diagram, the state
+ * lives in struct sstep_plant. */
 #define Z_N 13
 
-#define LEG_LOW 0
-#define LEG_HIGH 1
-#define LEG_DEAD 2
-
-struct motor
+struct sil_plant
 {
-    double R, L, Kt, p, J, B, Td, Tc, wc;
+    struct sstep_plant model;
+    struct sstep_plant_adc adc;
 };
 
-static void deriv(const struct motor* m, const double* x, double vA, double vB, double TL,
-                  int locked, double* d)
-{
-    const double s = sin(m->p * x[3]);
-    const double c = cos(m->p * x[3]);
-    const double Te = m->Kt * (-x[0] * s + x[1] * c) - m->Td * sin(4.0 * m->p * x[3]);
-    d[0] = (vA - m->R * x[0] + m->Kt * x[2] * s) / m->L;
-    d[1] = (vB - m->R * x[1] - m->Kt * x[2] * c) / m->L;
-    /* viscous and dry friction (dry part smoothed around w = 0, model/stepper_motor_f.sci) */
-    const double Tf = m->B * x[2] + m->Tc * tanh(x[2] / m->wc);
-    d[2] = locked ? 0.0 : (Te - TL - Tf) / m->J;
-    d[3] = locked ? 0.0 : x[2];
-}
-
-static void rk4(const struct motor* m, double* x, double vA, double vB, double TL, int locked,
-                double h)
-{
-    double k1[4], k2[4], k3[4], k4[4], y[4];
-    deriv(m, x, vA, vB, TL, locked, k1);
-    for (int i = 0; i < 4; i++) { y[i] = x[i] + h / 2 * k1[i]; }
-    deriv(m, y, vA, vB, TL, locked, k2);
-    for (int i = 0; i < 4; i++) { y[i] = x[i] + h / 2 * k2[i]; }
-    deriv(m, y, vA, vB, TL, locked, k3);
-    for (int i = 0; i < 4; i++) { y[i] = x[i] + h * k3[i]; }
-    deriv(m, y, vA, vB, TL, locked, k4);
-    for (int i = 0; i < 4; i++)
-    {
-        x[i] = x[i] + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
-    }
-}
-
-/* Switching stage, same algorithm as model/bridge_switching.sci (stepper_period_sw) and
- * tools/ref_switching.py. The period starts at the counter peak (all low sides on, the
- * sampling instant); high side on in [Ts/2 (1 - d), Ts/2 (1 + d)], every turn-on delayed
- * by the dead time. */
-struct leg_ev
-{
-    int n;
-    double t[5];
-    int s[5];
-};
-
-static void leg_events(double d, double Ts, double td, struct leg_ev* ev)
-{
-    ev->n = 0;
-    if (d >= 1.0)
-    {
-        ev->t[0] = 0.0;
-        ev->s[0] = LEG_HIGH;
-        ev->n = 1;
-    }
-    else if (d <= 0.0)
-    {
-        ev->t[0] = 0.0;
-        ev->s[0] = LEG_LOW;
-        ev->n = 1;
-    }
-    else
-    {
-        const double t1 = Ts / 2 * (1.0 - d);
-        const double t2 = Ts / 2 * (1.0 + d);
-        ev->t[0] = 0.0;
-        ev->s[0] = LEG_LOW;
-        ev->t[1] = t1;
-        ev->s[1] = LEG_DEAD;
-        ev->n = 2;
-        if (t1 + td < t2)
-        {
-            ev->t[ev->n] = t1 + td;
-            ev->s[ev->n] = LEG_HIGH;
-            ev->n++;
-        }
-        ev->t[ev->n] = t2;
-        ev->s[ev->n] = LEG_DEAD;
-        ev->n++;
-        if (t2 + td < Ts)
-        {
-            ev->t[ev->n] = t2 + td;
-            ev->s[ev->n] = LEG_LOW;
-            ev->n++;
-        }
-    }
-}
-
-static int leg_state(const struct leg_ev* ev, double t)
-{
-    int s = ev->s[0];
-    for (int k = 0; k < ev->n; k++)
-    {
-        if (ev->t[k] <= t)
-        {
-            s = ev->s[k];
-        }
-    }
-    return s;
-}
-
-static double leg_voltage(int state, double i_leg, double vbus, double rds, double vd)
-{
-    double v;
-    if (state == LEG_HIGH)
-    {
-        v = vbus - i_leg * rds;
-    }
-    else if (state == LEG_LOW)
-    {
-        v = -i_leg * rds;
-    }
-    else
-    {
-        v = (i_leg >= 0.0) ? -vd : (vbus + vd); /* dead time: a body diode conducts */
-    }
-    return v;
-}
-
-static int cmp_double(const void* a, const void* b)
-{
-    const double x = *(const double*)a;
-    const double y = *(const double*)b;
-    return (x < y) ? -1 : ((x > y) ? 1 : 0);
-}
-
-/* one PWM period; peak[2] = largest |iA|, |iB| */
-static void period_sw(const struct motor* m, const double* p, double* x, const double* duty,
-                      int enabled, double TL, int locked, double* peak)
-{
-    const double Ts = 1.0 / p[P_FS];
-    const double td = p[P_DEAD_NS] * 1e-9;
-    const int shared = p[P_TOPO] > 0.5;
-    const int nleg = shared ? 3 : 4;
-    const double hmax = Ts / p[P_SW_NSTEP];
-    struct leg_ev ev[SSTEP_LEGS_MAX];
-    double bps[2 + 5 * SSTEP_LEGS_MAX];
-    int nb = 0;
-
-    bps[nb++] = 0.0;
-    bps[nb++] = Ts;
-    for (int k = 0; k < nleg; k++)
-    {
-        if (enabled)
-        {
-            leg_events(duty[k], Ts, td, &ev[k]);
-        }
-        else
-        {
-            ev[k].n = 1;
-            ev[k].t[0] = 0.0;
-            ev[k].s[0] = LEG_DEAD;
-        }
-        for (int j = 0; j < ev[k].n; j++)
-        {
-            if ((ev[k].t[j] > 0.0) && (ev[k].t[j] < Ts))
-            {
-                bps[nb++] = ev[k].t[j];
-            }
-        }
-    }
-    qsort(bps, (size_t)nb, sizeof(double), cmp_double);
-
-    peak[0] = fabs(x[0]);
-    peak[1] = fabs(x[1]);
-    for (int j = 0; j + 1 < nb; j++)
-    {
-        const double ta = bps[j];
-        const double tb = bps[j + 1];
-        int st[SSTEP_LEGS_MAX];
-        if (tb <= ta)
-        {
-            continue; /* equal breakpoints */
-        }
-        for (int k = 0; k < nleg; k++)
-        {
-            st[k] = leg_state(&ev[k], ta);
-        }
-        const int n = (int)ceil((tb - ta) / hmax - 1e-9);
-        const double h = (tb - ta) / n;
-        for (int i = 0; i < n; i++)
-        {
-            double vA;
-            double vB;
-            if (shared)
-            {
-                const double vw = leg_voltage(st[2], -(x[0] + x[1]), p[P_VBUS], p[P_RDS], p[P_VD]);
-                vA = leg_voltage(st[0], x[0], p[P_VBUS], p[P_RDS], p[P_VD]) - vw;
-                vB = leg_voltage(st[1], x[1], p[P_VBUS], p[P_RDS], p[P_VD]) - vw;
-            }
-            else
-            {
-                vA = leg_voltage(st[0], x[0], p[P_VBUS], p[P_RDS], p[P_VD]) -
-                     leg_voltage(st[1], -x[0], p[P_VBUS], p[P_RDS], p[P_VD]);
-                vB = leg_voltage(st[2], x[1], p[P_VBUS], p[P_RDS], p[P_VD]) -
-                     leg_voltage(st[3], -x[1], p[P_VBUS], p[P_RDS], p[P_VD]);
-            }
-            rk4(m, x, vA, vB, TL, locked, h);
-            peak[0] = fmax(peak[0], fabs(x[0]));
-            peak[1] = fmax(peak[1], fabs(x[1]));
-        }
-    }
-}
-
-static double adc_clamp(double v, double hi)
-{
-    return (v < 0.0) ? 0.0 : ((v > hi) ? hi : v);
-}
-
-/* Discrete state z: [iA iB w theta vA vB duty(4) enabled peakA peakB], vA vB = averaged
- * voltages of the next period, duty / enabled = leg duties of the next period.
- * Input:   1 [compare(4) enabled] from the controller
+/* Input:   1 [compare(4) enabled] from the controller
  * Outputs: 1 ADC sample [i_a i_b vbus] (counts)
  *          2 [iA iB w theta vA vB |iA|max |iB|max] (A, A, rad/s, rad, V, V, A, A),
  *            maxima over the last period (switching stage: including the ripple)
- * Power stage (rpar P_STAGE): 0 averaged, 1 switching (dead time, Rds(on), diodes).
+ * Power stage (rpar P_STAGE): 0 averaged, 1 switching (dead time, Rds(on), diodes);
+ * averaged with a leg voltage error table when P_NERR > 0 (ngspice).
  * Activation: one event input at fs. The voltage computed in period k is applied in
  * period k + 1 (one-period computation delay of the MCU). */
 void sstep_xcos_plant(scicos_block* blk, scicos_flag flag)
 {
+    struct sil_plant* s = (struct sil_plant*)(*blk->work);
     const double* p = blk->rpar;
-    double* z = blk->z;
 
     if (flag == Initialization)
     {
-        if ((blk->nrpar < P_NPAR) || (blk->nrpar != P_NPAR + 2 * (int)lround(p[P_NLOAD])) ||
-            (blk->nz != Z_N))
+        struct sstep_plant_motor mot;
+        struct sstep_plant_stage stg;
+        int nload;
+        int nerr;
+        if ((blk->nrpar < P_NPAR) || (blk->nz != Z_N))
         {
             Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
+            return;
         }
+        nload = (int)lround(p[P_NLOAD]);
+        nerr = (int)lround(p[P_NERR]);
+        if ((nerr < 0) || (nerr > SSTEP_PLANT_LEG_ERROR_MAX) ||
+            (blk->nrpar != P_NPAR + 2 * nload + 2 * nerr))
+        {
+            Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
+            return;
+        }
+        s = (struct sil_plant*)calloc(1, sizeof(*s));
+        if (s == NULL)
+        {
+            Coserror("Stepper plant block: out of memory");
+            return;
+        }
+        *blk->work = s;
+
+        mot.r = p[P_R];
+        mot.l = p[P_L];
+        mot.kt = p[P_KT];
+        mot.ns = p[P_NS];
+        mot.j = p[P_J];
+        mot.b = p[P_B];
+        mot.td = p[P_TD];
+        mot.tc = p[P_TC];
+        mot.w_c = p[P_WC];
+        stg.topology = (p[P_TOPO] > 0.5) ? SSTEP_PLANT_SHARED_LEG : SSTEP_PLANT_FULL_BRIDGE;
+        stg.model = (p[P_STAGE] > 0.5) ? SSTEP_PLANT_STAGE_SWITCHING : SSTEP_PLANT_STAGE_AVG;
+        stg.off = SSTEP_PLANT_OFF_ZERO_VOLTAGE; /* as the Scilab prototype */
+        stg.locked = p[P_LOCKED] > 0.5;
+        stg.vbus = p[P_VBUS];
+        stg.fs = p[P_FS];
+        stg.period = p[P_PERIOD];
+        stg.nsub = (unsigned)lround(p[P_NSUB]);
+        stg.dead_ns = p[P_DEAD_NS];
+        stg.rds_on = p[P_RDS];
+        stg.vd = p[P_VD];
+        stg.sw_nstep = (unsigned)lround(p[P_SW_NSTEP]);
+        stg.leg_error_n = (unsigned)nerr;
+        for (int k = 0; k < nerr; k++)
+        {
+            stg.leg_error_i[k] = p[P_NPAR + 2 * nload + k];
+            stg.leg_error_v[k] = p[P_NPAR + 2 * nload + nerr + k];
+        }
+        if (sstep_plant_init(&s->model, &mot, &stg) != 0)
+        {
+            Coserror("Stepper plant block: invalid motor or power stage parameters");
+            return;
+        }
+        s->adc.i_full = p[P_IFULL];
+        s->adc.span = p[P_SPAN];
+        s->adc.zero = p[P_ZERO];
+        s->adc.v_full = p[P_VFULL];
+        s->adc.full = p[P_ADC_FULL];
     }
-    else if (flag == OutputUpdate)
+    else if ((flag == OutputUpdate) && (s != NULL))
     {
+        const struct sstep_plant* m = &s->model;
         double* adc = (double*)blk->outptr[0];
         double* y = (double*)blk->outptr[1];
-        const double full = p[P_ADC_FULL];
-        adc[0] = adc_clamp((double)lround(p[P_ZERO] + z[0] / p[P_IFULL] * p[P_SPAN]), full);
-        adc[1] = adc_clamp((double)lround(p[P_ZERO] + z[1] / p[P_IFULL] * p[P_SPAN]), full);
-        adc[2] = adc_clamp((double)lround(p[P_VBUS] / p[P_VFULL] * full), 65535.0);
-        for (int i = 0; i < 6; i++)
-        {
-            y[i] = z[i];
-        }
-        y[6] = z[Z_PEAK];
-        y[7] = z[Z_PEAK + 1];
+        sstep_plant_adc_sample(m, &s->adc, adc);
+        y[0] = m->x[0];
+        y[1] = m->x[1];
+        y[2] = m->x[2];
+        y[3] = sstep_plant_theta(m);
+        y[4] = m->v[0];
+        y[5] = m->v[1];
+        y[6] = m->peak[0];
+        y[7] = m->peak[1];
     }
-    else if ((flag == StateUpdate) && (blk->nevprt > 0))
+    else if ((flag == StateUpdate) && (blk->nevprt > 0) && (s != NULL))
     {
         const double* u = (const double*)blk->inptr[0];
-        const struct motor m = {p[P_R],  p[P_L], p[P_KT], p[P_NS] / 4.0, p[P_J],
-                                p[P_B],  p[P_TD], p[P_TC], p[P_WC]};
-        const int nsub = (int)lround(p[P_NSUB]);
-        const double h = 1.0 / p[P_FS] / nsub;
         const double t = get_scicos_time();
         const int nload = (int)lround(p[P_NLOAD]);
         double TL = 0.0;
-        double leg[SSTEP_LEGS_MAX];
 
         for (int k = 0; k < nload; k++)
         {
@@ -589,41 +452,14 @@ void sstep_xcos_plant(scicos_block* blk, scicos_flag flag)
                 TL = p[P_NPAR + 2 * k + 1];
             }
         }
-        if (p[P_STAGE] > 0.5)
-        {
-            period_sw(&m, p, z, &z[Z_DUTY], z[Z_EN] > 0.5, TL, p[P_LOCKED] > 0.5, &z[Z_PEAK]);
-        }
-        else
-        {
-            for (int k = 0; k < nsub; k++)
-            {
-                rk4(&m, z, z[4], z[5], TL, p[P_LOCKED] > 0.5, h);
-            }
-            z[Z_PEAK] = fabs(z[0]);
-            z[Z_PEAK + 1] = fabs(z[1]);
-        }
+        sstep_plant_period(&s->model, TL);
         /* voltage of the next period from the compare values just written */
-        for (unsigned k = 0; k < SSTEP_LEGS_MAX; k++)
-        {
-            z[Z_DUTY + k] = u[k] / p[P_PERIOD];
-            leg[k] = z[Z_DUTY + k] * p[P_VBUS];
-        }
-        z[Z_EN] = (u[4] < 0.5) ? 0.0 : 1.0;
-        if (u[4] < 0.5)
-        {
-            z[4] = 0.0; /* outputs disabled */
-            z[5] = 0.0;
-        }
-        else if (p[P_TOPO] > 0.5)
-        {
-            z[4] = leg[0] - leg[2]; /* shared leg: A = U - W, B = V - W */
-            z[5] = leg[1] - leg[2];
-        }
-        else
-        {
-            z[4] = leg[0] - leg[1]; /* two H-bridges */
-            z[5] = leg[2] - leg[3];
-        }
+        sstep_plant_set_compare(&s->model, u, u[4] >= 0.5);
+    }
+    else if (flag == Ending)
+    {
+        free(s);
+        *blk->work = NULL;
     }
 }
 
@@ -631,12 +467,15 @@ void sstep_xcos_plant(scicos_block* blk, scicos_flag flag)
  * MONITOR BLOCK
  * =============================================================================*/
 
-/* Inputs:  1 plant [iA iB w theta vA vB |iA|max |iB|max], 2 controller monitor (7)
+/* Inputs:  1 plant [iA iB w theta vA vB |iA|max |iB|max], 2 controller monitor (12)
  * Outputs: 1 currents [iA iB iA_ref iB_ref] (A)
  *          2 speed (rpm)
  *          3 load angle (electrical deg; positive = rotor behind the field)
  *          4 position [commanded rotor] (microsteps)
- *          5 all of the above + [vA vB |iA|max |iB|max] (12 values) for the workspace
+ *          5 all of the above + [vA vB |iA|max |iB|max] + [state faults emf_d emf_q
+ *            rotor_velocity load_angle_est stall_level] (19 values) for the
+ *            workspace: library state and fault flags, stall detector estimates
+ *            (mV, mV, usteps/s, electrical deg, %)
  * rpar: [Ns M]. Activation inherited from the inputs. */
 void sstep_xcos_monitor(scicos_block* blk, scicos_flag flag)
 {
@@ -672,5 +511,12 @@ void sstep_xcos_monitor(scicos_block* blk, scicos_flag flag)
         all[9] = pl[5];
         all[10] = pl[6];
         all[11] = pl[7];
+        all[12] = mo[3];
+        all[13] = mo[4];
+        all[14] = mo[7];
+        all[15] = mo[8];
+        all[16] = mo[9];
+        all[17] = mo[10] / 100.0;
+        all[18] = mo[11];
     }
 }

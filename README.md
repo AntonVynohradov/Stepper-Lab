@@ -6,7 +6,9 @@ control library **Stepper-C** (`sfs-stepper-ctrl`) before it runs on hardware.
 > **Status:** averaged motor model, averaged and switching power stage (both
 > topologies, dead time, diodes), discrete PI current loop and motion generator;
 > software in the loop (SIL) in Xcos with the Stepper-C C library; detent torque and
-> dry friction; tests T00–T12, B01, X01–X04, S01–S04.
+> dry friction; the plant model in portable C (`sil/c/sstep_plant.c`), shared with the
+> firmware simulation of sfs-stepper-driver; stall detection of Stepper-C 1.1.0 in the
+> prototype and in the SIL; tests T00–T13, B01, X01–X04, S01–S06.
 
 ## Software in the loop (Xcos) — start here
 
@@ -30,13 +32,17 @@ The Xcos diagram `xcos/stepper_sil.zcos` runs the **real C code of Stepper-C**
    | `brd.topology` | `"shared"` (B-G431B-ESC1) or `"full"` (two H-bridges) | `"full"` |
    | `brd.stage` | `"avg"` averaged power stage or `"switching"` (PWM, dead time, diodes) | `"switching"` |
    | `mp` | microsteps, speed and acceleration limits, run / hold current | `mp.v_max = 25600` |
+   | `ctl` | current loop and stall detection (`ctl.stall_time_ms = 50` switches it on) | `ctl.stall_sync_pct = 30` |
    | `locked` | 1: rotor locked (current loop test) | `1` |
    | `T_end` | simulated time (s) | `1.0` |
 
    The results of the last run are in the variable **`sil`**: `sil.time` and
    `sil.values` with the columns iA, iB, iA_ref, iB_ref (A), speed (rpm), load angle
    (deg), commanded and rotor position (µsteps), vA, vB (V), largest |iA|, |iB| in the
-   period (A, with the PWM ripple when `brd.stage = "switching"`).
+   period (A, with the PWM ripple when `brd.stage = "switching"`), then from the
+   library: state (3 = fault), fault flags (32 = `SSTEP_FAULT_STALL`, 1 = overcurrent)
+   and the stall detector estimates of `sstep_get_status()`: back-EMF d, q (mV), rotor
+   velocity (µsteps/s), load angle (deg), detector level (%) — 19 columns.
 
 ```
  SampleCLK (fs) ──► Stepper-C (C library) ──PWM compare──► Power stage + motor + ADC
@@ -47,9 +53,40 @@ The Xcos diagram `xcos/stepper_sil.zcos` runs the **real C code of Stepper-C**
 
 The blocks compute exactly what the microcontroller computes: ADC counts in, PWM
 compare values out, one fast loop period of computation delay. The numeric backend is
-chosen in `start_sil.sce` (`"FIXED"` or `"FLOAT"`). Tests S01–S04 run the diagram
+chosen in `start_sil.sce` (`"FIXED"` or `"FLOAT"`). Tests S01–S06 run the diagram
 without windows and compare it with the Scilab prototype sample by sample (currents
-within the ADC step, commanded angle identical).
+within the ADC step, commanded angle identical, same fault at the same time). A
+Scilab session links one backend: `run_all.sce` runs S01–S06 with FIXED and starts a
+second Scilab process for FLOAT (`tests/run_sil_backend.sce`, `SSTEP_SIL_BACKEND`).
+
+## Plant model in C, shared with the firmware
+
+The power stage, the motor and the ADC of the Xcos plant block are one portable C
+module, `sil/c/sstep_plant.[ch]` (no Scilab header). `sstep_xcos.c` only wraps it;
+the firmware of [sfs-stepper-driver](https://github.com/AntonVynohradov/sfs-stepper-driver)
+(simulated motor, on the board and on `native_sim`) compiles the same file, so a
+change of the model here reaches both after `west update` there.
+
+| Build option | Xcos | firmware |
+| --- | --- | --- |
+| `SSTEP_PLANT_FLOAT` | 0 (double) | 1 (single precision, Cortex-M4F FPU) |
+| `SSTEP_PLANT_SWITCHING` | 1 | 0 (averaged stage only, no `qsort`) |
+| outputs off (`stage.off`) | zero voltage, as the prototype | open windings |
+
+The electrical angle is kept in [-pi, pi) with a separate turn count, so the single
+precision build does not lose accuracy over long runs. Parameters for C users are
+JSON files next to the Scilab ones:
+
+| File | Written by | Content |
+| --- | --- | --- |
+| `params/motor_*.json` | `python tools/export_params.py` (from `params/motor_*.sci`) | R, L, Kt, Ns, J, B, Td, Tc, w_c |
+| `params/stage_esc1_spice.json` | `sfs-stepper-power-spice`: `python tools/run_tests.py --export` | leg resistance, diode, effective dead time, **leg voltage error table** |
+
+Both carry `"format": 1`; readers check it. `python tools/export_params.py --check`
+fails when a motor JSON is older than its `.sci` file (run it before a commit).
+
+**Rule:** a change of the model is made in `sstep_plant.c` and in the Scilab prototype
+(`model/`) together; S01–S04 compare them.
 
 ## Model
 
@@ -111,6 +148,73 @@ Commands `[t kind value]`: 1 MOVE target, 2 RUN velocity, 3 STOP, 4 LOAD torque
 **Rule:** the Scilab model always follows the algorithm of the library. A change in
 Stepper-C is ported here (and to `tools/ref_motion.py`) in the same step.
 
+## Stall detection (Stepper-C 1.1.0)
+
+`stall_init`, `stall_observe`, `stall_check`, `stall_status` (`model/`) are the
+detector of the library, with the equations of its documentation (Motor Control →
+Stall detection): in the fast loop the back-EMF
+`e = v(k-2) - (L/Ts + R/2) i(k) + (L/Ts - R/2) i(k-1)` from the limited voltage, rotated
+into the commanded current frame and filtered (`stall_filter_us`); in the slow loop,
+in integer millivolts, the synchronism check in motion (`sgn(v) eq < stall_sync_pct %
+of Ke w`) or the slip check at rest (`|(ed, eq - Ke w) - offset| > e_s`, offset learned
+with the time constant `stall_time_ms`), an up/down counter and the trip at
+`stall_time_ms`. `sim_closed_loop` runs it with the motion generator when
+`c.stall_time_ms > 0`; after the fault the outputs are off and the reference is frozen,
+as in the library. `c.protect = 1` adds the overcurrent trip of the library (needed to
+compare the cases that end in an overcurrent fault). The Python twin is unchanged: the
+X tests run with stall detection off, where the library behaves as 1.0.0.
+
+Configuration of the tests (`ctrl_default` + `stall_time_ms = 50`):
+
+| Field | Value | Note |
+| --- | --- | --- |
+| `stall_time_ms` | 50 (0 in `ctrl_default`: off, as in the library) | detection delay |
+| `stall_filter_us` | 1000 | library example |
+| `stall_speed` | 1600 µsteps/s (0.5 rev/s) | slip threshold `e_s` = 655 mV |
+| `stall_sync_pct` | **30** | library example 50; 50 and 40 trip at 11 rev/s (below) |
+
+Results (T13 prototype, S06 Xcos with the C library; FIXED and FLOAT; averaged stage
+with the ngspice leg voltage error and switching stage — the values agree within the
+digits shown unless two are given as averaged / switching). Pull-out = load angle
+beyond 90°; steps lost = |commanded − rotor| at the fault.
+
+| Must trip | Result | Delay after the pull-out | Full steps lost |
+| --- | --- | --- | --- |
+| Reported case: 0.12 N·m, run 1.5 A, hold 0.5 A after 500 ms | `SSTEP_FAULT_STALL` at 550.0 ms | 48.1 ms | 76.4 / 76.7 |
+| Blocked rotor, run 1 rev/s from rest | `SSTEP_FAULT_STALL` at 60.0 ms | 45.9 ms | 10.0 |
+| **T06: 0.5 N·m load step at 1 rev/s (pull-out 0.417 N·m)** | **not detected**: `SSTEP_FAULT_OVERCURRENT` at 154.9 ms, stall level 4 % | (3.7 ms) | 13.4 |
+| **Overload at start: 0.5 N·m, run 1 rev/s** | **not detected**: `SSTEP_FAULT_OVERCURRENT` at 40.3 / 39.5–39.9 ms, stall level 30–38 % | (38–39 ms) | 1354 / 1298–1326 |
+
+| Must not trip | Largest detector level (margin to the trip) |
+| --- | --- |
+| Enable, run → hold 2 → 1 A, plant R +30 %, L −20 % | 52–54 % (46 %) |
+| Enable, run → hold 1.5 → 0.5 A with 0.07 N·m (held by 0.5 A) | 6 % |
+| T05 move 6400 µsteps; T07 reversal ±4 rev/s and stop; T09 8 rev/s both topologies | 0 % |
+| T08 4 rev/s, plant R +30 %, L −20 %, J ×5, 0.15 N·m | 28 % (72 %) |
+| T11 detent 0.02 N·m, 0.8–1.8 rev/s | 0 % |
+| T11 mid-band 5, 8 rev/s / 11 rev/s (limit cycle, load angle up to 106°, no step lost) | 0 % / 4 % |
+
+The Xcos run equals the prototype: the same fault at the same time (to the period),
+currents within 5 mA while the rotor is synchronous (largest 2.5 mA, switching stage; the
+switching overload case trips 0.4 ms earlier with FIXED). After the
+pull-out the free slip amplifies the ADC quantization; the 11 rev/s limit cycle
+grows from it, so that case is compared by its verdict only.
+
+**Open points for Stepper-C** (the tests report them as failures, not loosened):
+
+- *Fast slip in motion is not seen by the synchronism check.* When the rotor is torn
+  backwards the back-EMF vector rotates in the commanded frame and `eq` is above
+  `stall_sync_pct` about half of the time (49 % in T06), so the up/down counter does not
+  accumulate (largest level 4 %, 30–38 % at start). The drive is stopped by the
+  overcurrent trip instead (the back-EMF of the backward-spinning rotor exceeds the bus),
+  with 13 and 1354 full steps lost and the fault reported as overcurrent. A magnitude
+  check as at rest (`|e - (0, Ke w)| > threshold`) in motion too, or reporting a stall
+  with an overcurrent in motion, would catch it.
+- *Synchronism threshold near the voltage limit.* At 11 rev/s, 2 A, 24 V, shared leg
+  (power stage scale 0.30) `eq` is 35 % of `Ke w` on average: `stall_sync_pct` 50 trips at
+  227 ms and 40 at 242 ms although no step is lost; 30 does not trip (level 4 %). The
+  library documentation recommends 30 to 40 near the limit; 40 is not enough here.
+
 ## Power stage: averaged or switching
 
 `brd.stage` selects the power stage model (in the Scilab prototype and in the Xcos plant
@@ -123,6 +227,15 @@ block):
   current samples). Every turn-on is delayed by the dead time `dead_ns`; during the
   dead time the body diode carries the current (leg at `-Vd` or `Vbus + Vd` depending
   on the current direction); conducting switches drop `Rds(on) * i`.
+
+With `brd.leg_error = stage_esc1_spice().leg_error` the **averaged** stage adds to
+every leg the voltage error measured with ngspice against the leg current (dead time,
+body diodes, leg resistance; linear between the points). It keeps the speed of the
+averaged model and follows the switching stage: at 4 rev/s the voltage the current
+loop commands differs from the switching stage by 19 mV instead of 118 mV with ideal
+legs (test S05). The table is valid at its operating point (`stg.vbus`, `stg.fs`).
+The default is `[]` (ideal legs, as the Scilab prototype); the firmware simulation
+uses the table by default.
 
 The switching model shows the current ripple, the peak current per period and the
 voltage error of the dead time, `-2 sign(i) (Vbus + 2 Vd) td / Ts` per phase — the
@@ -244,6 +357,9 @@ python tools/ref_ext.py                  # T08, T11, T12 in the Python twin
 | T11 | angle step 0.1 rad; speed sweep 0.8–1.8 rev/s with detent 0.02 N·m; 5, 8, 11 rev/s | natural frequency ±5 %, detent resonance at `4 p n = fn` ±10 %, oscillation < 1° / < 5° below the voltage limit, > 20° beyond |
 | T12 | unpowered rotor without back-EMF, Tc 0.01 N·m, 50 rad/s | spin-down time `(J/B) ln((w0 + Tc/B)/(w + Tc/B))` ±1 % |
 | S04 | SIL: run 4 rev/s, switching stage | currents < 5 mA, peak current as the prototype |
+| S05 | SIL: run 4 rev/s, averaged + `brd.leg_error` vs switching | commanded vA within 40 % of the ideal-leg difference, amplitude < 2 mA |
+| T13 | stall detection in the prototype: 4 must-trip and 21 must-not-trip scenarios (`tests/sim_stall_cases.sci`), averaged + leg error (all) and switching (must trip, T07) | must trip: `SSTEP_FAULT_STALL` first, 0 < delay after the pull-out < 70 ms; must not trip: no fault, < 2 full steps from the command |
+| S06 | SIL: the T13 scenarios on both stages, FIXED and FLOAT (second Scilab process) | same verdicts; equals the prototype: same fault within one slow period, currents < 5 mA while synchronous |
 
 ## Structure
 
@@ -251,9 +367,10 @@ python tools/ref_ext.py                  # T08, T11, T12 in the Python twin
 params/      motor, board, controller and motion parameters (functions returning structures)
 model/       model functions (state equations, sources, simulation)
 tests/       test scripts, runner, reference data
-sil/         software in the loop: Xcos blocks in C (sil/c), build of the library
+sil/         software in the loop: plant model in C (sil/c/sstep_plant.*, shared with the
+             firmware), Xcos blocks in C (sil/c/sstep_xcos.c), build of the library
 xcos/        Xcos diagram, its generator (sil_diagram) and block interfaces (xcos/blocks)
-tools/       Python twin of the model
+tools/       Python twin of the model, export of the motor parameters to JSON
 demos/       scripts with plots
 ```
 
@@ -263,7 +380,8 @@ demos/       scripts with plots
 | --- | --- |
 | `sfs-stepper-ctrl` | Stepper-C control library |
 | `sfs-stepper-sim` | this model |
-| `sfs-stepper-power-spice` | ngspice models of the power stage |
+| `sfs-stepper-power-spice` | ngspice models of the power stage (writes `params/stage_esc1_spice.*`) |
+| `sfs-stepper-driver` | Zephyr firmware; its simulated motor builds `sil/c/sstep_plant.c` with `params/*.json` |
 
 ## License
 

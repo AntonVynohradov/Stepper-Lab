@@ -47,4 +47,10 @@ function brd = board_bg431b_esc1()
     brd.dead_timer_ns = stg.dead_timer_ns;  // ns, dead time set in the timer
     brd.rds_on        = stg.r_leg;          // Ohm, leg resistance (switch, shunt)
     brd.vd            = stg.vd;             // V, body diode at 2 A
+
+    // Averaged stage: leg voltage error against the leg current (ngspice, measured at
+    // stg.vbus / stg.fs). [] = ideal legs (default, as the Scilab prototype);
+    // brd.leg_error = stg.leg_error adds dead time, diodes and leg resistance to the
+    // averaged model (Xcos plant block and the firmware simulation of sfs-stepper-driver).
+    brd.leg_error     = [];
 endfunction

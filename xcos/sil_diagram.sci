@@ -33,8 +33,10 @@ function scs_m = sil_diagram(path)
            "brd = board_bg431b_esc1();     // power stage + ADC, params/board_bg431b_esc1.sci";
            "// brd.topology = ""full"";      // two H-bridges instead of the ESC1 shared leg";
            "// brd.stage = ""switching"";    // PWM legs with dead time and diodes (slower)";
+           "// brd.leg_error = stage_esc1_spice().leg_error;  // averaged legs + ngspice voltage error";
            "// mot.Td = 0.02; mot.Tc = 0.01;  // detent torque, dry friction (N*m)";
-           "ctl = ctrl_default();          // current loop (bandwidth)";
+           "ctl = ctrl_default();          // current loop (bandwidth), stall detection";
+           "// ctl.stall_time_ms = 50;       // stall detection on: SSTEP_FAULT_STALL (sil.values(:, 14))";
            "mp  = motion_default();        // microsteps, speed, acceleration, currents";
            "";
            "// Commands [t kind value]: 1 MOVE to [microsteps], 2 RUN [microsteps/s], 3 STOP";
@@ -93,7 +95,7 @@ function scs_m = sil_diagram(path)
     objs(6).graphics.pin = [0; 0; 0; 0];
     objs(6).graphics.orig = [800, 120];
     objs(6).graphics.sz = [60, 120];
-    // 7 results to the workspace: variable sil (time, values: 12 columns)
+    // 7 results to the workspace: variable sil (time, values: 19 columns)
     objs(7) = TOWS_c("define");
     objs(7).graphics.exprs = ["N_log"; "sil"; "1"];
     objs(7).graphics.orig = [800, 20];

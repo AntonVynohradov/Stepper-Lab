@@ -17,7 +17,8 @@ function [x, y, typ] = STEPPER_PLANT(job, arg1, arg2)
     // Input:  [compare(4) enabled] from STEPPER_CTRL
     // Output: 1 ADC sample [i_a i_b vbus] (counts),
     //         2 [iA iB w theta vA vB |iA|max |iB|max] (SI, maxima over the last period)
-    // Power stage: brd.stage = "avg" (averaged) or "switching" (dead time, diodes).
+    // Power stage: brd.stage = "avg" (averaged; brd.leg_error adds the ngspice leg
+    // voltage error) or "switching" (dead time, diodes). Model: sil/c/sstep_plant.c.
     // Event input: fast loop clock (fs). The voltage computed in a period is applied in
     // the next one (computation delay of the microcontroller).
     x = [];
@@ -36,7 +37,7 @@ function [x, y, typ] = STEPPER_PLANT(job, arg1, arg2)
             if ~ok then
                 break;
             end
-            if size(rpar, "*") < 26 then
+            if size(rpar, "*") < 27 then
                 message("Use sil_plant_rpar(...) to build the parameter vector.");
                 ok = %f;
             end

@@ -14,10 +14,12 @@
 // =============================================================================
 
 function [x, y, typ] = STEPPER_MONITOR(job, arg1, arg2)
-    // Inputs:  1 plant [iA iB w theta vA vB |iA|max |iB|max], 2 controller monitor (7)
+    // Inputs:  1 plant [iA iB w theta vA vB |iA|max |iB|max], 2 controller monitor (12)
     // Outputs: 1 currents [iA iB iA_ref iB_ref] (A), 2 speed (rpm),
     //          3 load angle (electrical deg), 4 positions [commanded rotor] (microsteps),
-    //          5 all values + [vA vB |iA|max |iB|max] (12) for the workspace (variable sil)
+    //          5 all values + [vA vB |iA|max |iB|max] + [state faults emf_d emf_q
+    //          rotor_velocity load_angle_est stall_level] (19) for the workspace
+    //          (variable sil)
     x = [];
     y = [];
     typ = [];
@@ -42,10 +44,10 @@ function [x, y, typ] = STEPPER_MONITOR(job, arg1, arg2)
     case "define" then
         model = scicos_model();
         model.sim = list("sstep_xcos_monitor", 4);
-        model.in = [8; 7];
+        model.in = [8; 12];
         model.in2 = [1; 1];
         model.intyp = [1; 1];
-        model.out = [4; 1; 1; 2; 12];
+        model.out = [4; 1; 1; 2; 19];
         model.out2 = [1; 1; 1; 1; 1];
         model.outtyp = [1; 1; 1; 1; 1];
         model.rpar = [200; 16];

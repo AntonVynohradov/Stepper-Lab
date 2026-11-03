@@ -23,4 +23,19 @@ function stg = stage_esc1_spice()
     stg.dead_eff_ns   = 132.64609027115077;          // ns, effective (driver and switch delays)
     stg.shunt_settle_ns = 344.62099999998054;        // ns, shunt settled, from the low-side timer edge
     stg.duty_max_sampling = 0.9562151600000007;   // largest leg duty with a valid current sample
+    // leg voltage error (actual - duty * Vbus) against the leg current at the operating
+    // point below; averaged stage with brd.leg_error = stg.leg_error. Columns: A, V
+    stg.leg_error = [
+                     -3.0, 0.08361598244929169;
+                     -2.0, 0.0756156852138119;
+                     -1.0, 0.058120821596489236;
+                     -0.5, 0.03468515080317225;
+                     -0.25, 0.015936891211421056;
+                     0.25, -0.020494957980343287;
+                     0.5, -0.039991812561204654;
+                     1.0, -0.06558704285765593;
+                     2.0, -0.08257675353845606;
+                     3.0, -0.09055075800211121];
+    stg.vbus = 24.0;   // V, operating point of the table
+    stg.fs   = 20000.0;   // Hz
 endfunction

@@ -16,7 +16,7 @@
 function [x, y, typ] = STEPPER_CTRL(job, arg1, arg2)
     // Input:  ADC sample [i_a i_b vbus] (counts)
     // Output: 1 [compare(4) enabled], 2 monitor [phi position velocity state faults
-    //         iA_ref iB_ref]
+    //         iA_ref iB_ref emf_d emf_q rotor_velocity load_angle stall_level]
     // Event input: fast loop clock (fs)
     x = [];
     y = [];
@@ -53,7 +53,7 @@ function [x, y, typ] = STEPPER_CTRL(job, arg1, arg2)
         model.in = 3;
         model.in2 = 1;
         model.intyp = 1;
-        model.out = [5; 7];
+        model.out = [5; 12];
         model.out2 = [1; 1];
         model.outtyp = [1; 1];
         model.evtin = 1;

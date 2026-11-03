@@ -20,6 +20,8 @@ exec(fullfile(rt_dir, "..", "loader.sce"), -1);
 exec(fullfile(rt_dir, "sim_check.sci"), -1);
 exec(fullfile(rt_dir, "sim_step_metrics.sci"), -1);
 exec(fullfile(rt_dir, "sim_load_angle.sci"), -1);
+exec(fullfile(rt_dir, "sim_stall_cases.sci"), -1);
+exec(fullfile(rt_dir, "sim_stall_run.sci"), -1);
 
 rt_tests = ["test_T00_conventions.sce"
             "test_T01_resistance.sce"
@@ -39,7 +41,9 @@ rt_tests = ["test_T00_conventions.sce"
             "test_X04_switching.sce"
             "test_T11_resonance.sce"
             "test_T12_friction.sce"
-            "test_S01_sil.sce"];
+            "test_T13_stall.sce"
+            "test_S01_sil.sce"
+            "test_S06_stall.sce"];
 
 rt_fail = 0;
 for rt_k = 1:size(rt_tests, "*")

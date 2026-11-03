@@ -2,9 +2,11 @@
 // sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_S01_sil.sce
-// Description: S01..S03: software in the loop. The Xcos diagram (Stepper-C C code +
+// Description: S01..S04: software in the loop. The Xcos diagram (Stepper-C C code +
 //              motor model) is simulated without windows and compared with the
 //              Scilab prototype of the same algorithm, sample by sample.
+//              S05: averaged stage with the ngspice leg voltage error against the
+//              switching stage (model sil/c/sstep_plant.c).
 //
 // Author:      Anton Vynohradov
 // Email:       avynohradov@systemfromscratch.com
@@ -23,7 +25,10 @@ if isempty(sil_linked_backend) then
 end
 
 if sil_can_run then
-    sil_build("FIXED");
+    if ~exists("sil_test_backend") then
+        sil_test_backend = "FIXED";     // FLOAT: tests/run_sil_backend.sce (S06)
+    end
+    sil_build(sil_test_backend);
     scs_m = sil_diagram();
     mot = motor_17hs19_2004s1();
     brd = board_bg431b_esc1();
@@ -94,4 +99,30 @@ if sil_can_run then
         (n >= 1999) & (di < 5e-3) & (abs(pk_sil - pk_pro) < 5e-3), ..
         msprintf("%d samples, max current difference %.2f mA, peak %.3f A (prototype %.3f A)", ..
                  n, di * 1e3, pk_sil, pk_pro));
+
+    // ---- S05 averaged stage + ngspice leg voltage error (brd.leg_error) at 4 rev/s: the
+    // voltage the current loop commands follows the switching stage (dead time, diodes)
+    vals = list();
+    for n_s = 1:3
+        brd5 = brd;
+        if n_s == 1 then
+            brd5.stage = "switching";
+        elseif n_s == 3 then
+            brd5.leg_error = stage_esc1_spice().leg_error;
+        end
+        ctx = struct("cmds", [0, 2, 12800], "brd", brd5, "loads", [0, 0], "locked", 0, ..
+                     "T_end", 0.1);
+        scicos_simulate(scs_m, list(), ctx, "nw");
+        vals(n_s) = sil.values;
+    end
+    n = min([size(vals(1), 1), size(vals(2), 1), size(vals(3), 1)]);
+    sel = round(n / 2):n;
+    dv_avg = mean(abs(vals(2)(sel, 9) - vals(1)(sel, 9)));     // commanded vA [V]
+    dv_err = mean(abs(vals(3)(sel, 9) - vals(1)(sel, 9)));
+    amp_sw = mean(sqrt(vals(1)(sel, 1).^2 + vals(1)(sel, 2).^2));
+    amp_err = mean(sqrt(vals(3)(sel, 1).^2 + vals(3)(sel, 2).^2));
+    sim_failures = sim_failures + sim_check("S05 averaged + leg error follows the switching stage", ..
+        (dv_err < 0.4 * dv_avg) & (abs(amp_err - amp_sw) < 2e-3), ..
+        msprintf("commanded vA vs switching: %.1f mV (ideal legs %.1f mV), amplitude %.4f A (switching %.4f A)", ..
+                 dv_err * 1e3, dv_avg * 1e3, amp_err, amp_sw));
 end

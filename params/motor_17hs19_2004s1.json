@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "source": "sfs-stepper-sim params/motor_17hs19_2004s1.sci (tools/export_params.py)",
+  "name": "17HS19-2004S1",
+  "units": {
+    "R": "Ohm",
+    "L": "H",
+    "I_rated": "A",
+    "Kt": "N*m/A",
+    "Ns": "full steps per revolution",
+    "Td": "N*m",
+    "J": "kg*m^2",
+    "B": "N*m*s/rad",
+    "Tc": "N*m",
+    "w_c": "rad/s"
+  },
+  "R": 1.6,
+  "L": 0.003,
+  "I_rated": 2.0,
+  "Kt": 0.2086,
+  "Ns": 200.0,
+  "Td": 0.0,
+  "J": 8.2e-06,
+  "B": 1e-05,
+  "Tc": 0.0,
+  "w_c": 0.05
+}
