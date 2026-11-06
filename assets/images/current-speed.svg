@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340" role="img" aria-label="Current amplitude against speed">
+<title>Current amplitude against speed</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5A6472"/></marker><marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F8B9A"/></marker><marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#E07A00"/></marker><marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E7D32"/></marker></defs>
+<rect x="0" y="0" width="960" height="340" rx="12" fill="#FFFFFF"/>
+<rect x="90" y="40" width="830" height="240" rx="2" fill="#FFFFFF" stroke="#C9D3E0" stroke-width="1"/>
+<text x="505.0" y="28" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="14" font-weight="bold" fill="#0B2545" text-anchor="middle">Current amplitude at constant speed, 24 V, 2 A commanded</text>
+<line x1="90.0" y1="40" x2="90.0" y2="280" stroke="#E7ECF3" stroke-width="1"/>
+<text x="90.0" y="296" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="middle">4</text>
+<line x1="366.66666666666663" y1="40" x2="366.66666666666663" y2="280" stroke="#E7ECF3" stroke-width="1"/>
+<text x="366.66666666666663" y="296" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="middle">6</text>
+<line x1="643.3333333333333" y1="40" x2="643.3333333333333" y2="280" stroke="#E7ECF3" stroke-width="1"/>
+<text x="643.3333333333333" y="296" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="middle">8</text>
+<line x1="920.0" y1="40" x2="920.0" y2="280" stroke="#E7ECF3" stroke-width="1"/>
+<text x="920.0" y="296" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="middle">10</text>
+<line x1="90" y1="280.0" x2="920" y2="280.0" stroke="#E7ECF3" stroke-width="1"/>
+<text x="83" y="284.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="end">0</text>
+<line x1="90" y1="225.45454545454544" x2="920" y2="225.45454545454544" stroke="#E7ECF3" stroke-width="1"/>
+<text x="83" y="229.45454545454544" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="end">0.5</text>
+<line x1="90" y1="170.9090909090909" x2="920" y2="170.9090909090909" stroke="#E7ECF3" stroke-width="1"/>
+<text x="83" y="174.9090909090909" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="end">1</text>
+<line x1="90" y1="116.36363636363637" x2="920" y2="116.36363636363637" stroke="#E7ECF3" stroke-width="1"/>
+<text x="83" y="120.36363636363637" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="end">1.5</text>
+<line x1="90" y1="61.81818181818181" x2="920" y2="61.81818181818181" stroke="#E7ECF3" stroke-width="1"/>
+<text x="83" y="65.81818181818181" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11" font-weight="normal" fill="#5A6472" text-anchor="end">2</text>
+<text x="505.0" y="314" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle">Speed [rev/s]</text>
+<text x="46" y="160.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle" transform="rotate(-90 46 160.0)">Current amplitude [A]</text>
+<path d="M90.0,64.9 L366.7,69.7 L643.3,76.9 L920.0,120.8" fill="none" stroke="#1E5AA8" stroke-width="1.7"/>
+<circle cx="90.0" cy="64.9" r="3.2" fill="#1E5AA8"/>
+<circle cx="366.7" cy="69.7" r="3.2" fill="#1E5AA8"/>
+<circle cx="643.3" cy="76.9" r="3.2" fill="#1E5AA8"/>
+<circle cx="920.0" cy="120.8" r="3.2" fill="#1E5AA8"/>
+<path d="M90.0,64.9 L366.7,72.9 L643.3,110.1 L920.0,168.8" fill="none" stroke="#E07A00" stroke-width="1.7"/>
+<circle cx="90.0" cy="64.9" r="3.2" fill="#E07A00"/>
+<circle cx="366.7" cy="72.9" r="3.2" fill="#E07A00"/>
+<circle cx="643.3" cy="110.1" r="3.2" fill="#E07A00"/>
+<circle cx="920.0" cy="168.8" r="3.2" fill="#E07A00"/>
+<text x="910" y="60" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11.5" font-weight="bold" fill="#1E5AA8" text-anchor="end">two H-bridges</text>
+<text x="910" y="77" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="11.5" font-weight="bold" fill="#E07A00" text-anchor="end">shared leg (B-G431B-ESC1)</text>
+</svg>

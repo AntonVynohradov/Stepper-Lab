@@ -1,0 +1,6 @@
+# setup of T09: 24 V, 2 A, bandwidth 1 kHz, unloaded rotor (sim_closed_loop)
+speed_rev_s,full_A,shared_A
+4,1.9715,1.9715
+6,1.9278,1.8986
+8,1.8617,1.5571
+10,1.4592,1.0194
