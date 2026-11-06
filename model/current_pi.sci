@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        model/current_pi.sci
 // Description: PI current controller of both phases (one fast loop period).

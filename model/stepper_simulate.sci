@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        model/stepper_simulate.sci
 // Description: Integrates the motor model over a time vector.

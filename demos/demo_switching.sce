@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        demos/demo_switching.sce
 // Description: Demo: switching power stage (B-G431B-ESC1, 24 V, 20 kHz, dead time)

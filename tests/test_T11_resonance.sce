@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T11_resonance.sce
 // Description: T11: rotor resonance. Natural frequency sqrt(p Kt I / J) / 2 pi; the

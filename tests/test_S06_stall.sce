@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_S06_stall.sce
 // Description: S06: stall detection of the real Stepper-C C code in the Xcos diagram,

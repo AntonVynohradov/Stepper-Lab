@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T12_friction.sce
 // Description: T12: dry friction. Unpowered rotor without back-EMF (Kt = 0) spins down:

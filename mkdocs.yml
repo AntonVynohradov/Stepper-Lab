@@ -1,0 +1,232 @@
+# MkDocs configuration of Stepper-Lab (SystemFromScratch® documentation layout).
+
+site_name: Stepper-Lab
+site_description: >-
+  Scilab/Xcos model of a two-phase stepper motor with its power stage: run the real C code of
+  Stepper-C or a Scilab prototype against it, with any input signal and readable results.
+site_author: Anton Vynohradov
+site_url: https://antonvynohradov.github.io/Stepper-Lab/   # GitHub Pages path = repository name
+repo_url: https://github.com/AntonVynohradov/Stepper-Lab
+repo_name: AntonVynohradov/Stepper-Lab
+edit_uri: ""
+copyright: >-
+  Copyright &copy; 2026 Anton Vynohradov ·
+  <a href="https://systemfromscratch.com">SystemFromScratch®</a> ·
+  Licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a>
+
+exclude_docs: |
+  superpowers/
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Introduction: overview.md
+      - Getting Started: guide.md
+      - The Lab Window and Diagrams: lab.md
+      - MIL and SIL: mil-sil.md
+      - Configuration: configuration.md
+  - Model:
+      - Motor and Control Model: model.md
+      - Measured Results: results.md
+  - Reference:
+      - Reference: reference.md
+      - Verification: verification.md
+      - Changelog: changelog.md
+  - About:
+      - Author & Company: about.md
+      - License: LICENSE.md
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  logo: assets/images/brand/systemfromscratch-logo-on-dark.png
+  favicon: assets/images/brand/systemfromscratch-logo.png
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+extra:
+  generator: false
+  # Header download button (overrides/partials/header.html); the PDF is built by CI
+  manual_pdf: downloads/Stepper-Lab_User_Manual.pdf
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AntonVynohradov
+      name: Anton Vynohradov on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/vynohradov
+      name: Anton Vynohradov on LinkedIn
+    - icon: fontawesome/brands/orcid
+      link: https://orcid.org/0009-0005-6965-0911
+      name: Anton Vynohradov on ORCID
+    - icon: material/web
+      link: https://systemfromscratch.com
+      name: SystemFromScratch®
+
+  # ---------------------------------------------------------------- landing page
+  # Rendered by overrides/home.html. Every number is measured: docs/verification.md.
+  landing:
+    eyebrow: Open-source simulation model
+    title: Stepper Motor Model
+    accent: in Scilab/Xcos
+    lead: >-
+      Stepper-Lab runs the real C code of Stepper-C, or a Scilab prototype of it, against a model of
+      the motor and its power stage: drive it with any signal, read labelled results, and see a
+      fault before the hardware does.
+    hero_image: assets/images/hero-3d.svg
+    hero_alt: >-
+      A block diagram on a board: signal sources drive the Stepper-C chip, which drives a motor
+      model in a loop, and a scope shows the two phase currents.
+    buttons:
+      - {text: Get started, link: guide/, style: primary}
+      - {text: View on GitHub, link: "https://github.com/AntonVynohradov/Stepper-Lab", style: outline}
+    features:
+      - {icon: code, line1: Real C code, line2: in the loop}
+      - {icon: wave, line1: Any Xcos, line2: input signal}
+      - {icon: flask, line1: 433 checks, line2: 0 failures}
+      - {icon: shield, line1: Apache-2.0, line2: open source}
+    problem:
+      eyebrow: The problem
+      title: A controller is hard to judge on the bench
+      intro: >-
+        On real hardware a current loop runs at 20 kHz, a lost step takes milliseconds, and the
+        first test of a new controller can burn a power stage. You see a few probes at a time and
+        cannot repeat a stall exactly. A model that runs the same code lets you study all of it
+        first, at any signal and on every run the same way.
+      cards:
+        - icon: chip
+          title: Test the code that ships
+          text: >-
+            The Stepper-C library runs inside an Xcos block, with ADC counts in and PWM compare
+            values out. It matches the Scilab prototype within 1.28 mA in a move of 640 microsteps.
+          tags: [SIL, MIL, FIXED and FLOAT]
+        - icon: wave
+          title: Any input, readable output
+          text: >-
+            Step, sine, ramp or your own signal on the motion command, run current and load torque.
+            Named scopes and a report with titles, units and the first fault replace unlabelled traces.
+          tags: [Four superblocks, Eight scenarios, Report]
+        - icon: shield
+          title: Results with a source
+          text: >-
+            The power stage comes from ngspice, the model is checked against theory and a separate
+            Python twin, and MIL and SIL report the same fault at the same time: 204.9 ms in the
+            load step test.
+          tags: [ngspice stage, Python twin, 433 checks]
+    offer:
+      eyebrow: What you get
+      title: One window from configuration to results
+      intro: >-
+        Select the library folder and the stage file, choose MIL or SIL and a scenario, then run,
+        report, compare or test. The same steps are available as Scilab functions.
+      cards:
+        - {icon: gauge, title: The Lab window, text: "Library folder, ngspice stage file, backend, model, scenarios and tests in one place.", tags: [Window, Settings], link: lab/}
+        - {icon: plug, title: Model-based diagrams, text: "Inputs, Controller, Plant and Outputs as Xcos superblocks. Replace a source with any block.", tags: [Xcos, Superblocks], link: "lab/#the-diagram"}
+        - {icon: chip, title: MIL and SIL, text: "The Scilab prototype and the C library in one layout, compared sample by sample.", tags: [MIL, SIL], link: mil-sil/}
+        - {icon: wave, title: The motor and control model, text: "Motor, current loop, motion generator, averaged and switching power stage, stall detector, with the equations.", tags: [Equations, RK4], link: model/}
+        - {icon: document, title: Measured results, text: "Voltage limit, resonance, parameter uncertainty and stall detection, with their limits.", tags: [Resonance, Stall], link: results/}
+        - {icon: check, title: Verification, text: "Tests against theory, a Python twin and between the models, with a filter for everyday runs.", tags: [Tests, Python twin], link: verification/}
+    stats:                                   # measured values only
+      - {value: "433", label: checks passed on the final run}
+      - {value: "8", label: ready scenarios}
+      - {value: "1.28 mA", label: largest MIL and SIL difference in a move}
+      - {value: "0.40 ms", label: settling of a 2 A current step}
+    portfolio:
+      title: Part of an open-source embedded portfolio
+      text: >-
+        Stepper-Lab is developed by Anton Vynohradov under SystemFromScratch® — embedded software
+        and hardware built from the first schematic to certification.
+      buttons:
+        - {text: SystemFromScratch®, link: "https://systemfromscratch.com", style: primary}
+        - {text: About the author, link: about/, style: outline}
+    trademark: >-
+      SystemFromScratch® is a registered trademark. STM32 is a registered trademark of
+      STMicroelectronics International N.V.; Stepper-Lab is not affiliated with or endorsed by
+      STMicroelectronics.
+
+  # ---------------------------------------------------------------- PDF manual
+  # Read by tools/docs/build_manual.py. The version comes from the git tag.
+  manual:
+    title: Stepper-Lab
+    subtitle: Stepper Motor Model in Scilab/Xcos
+    output: build/manual/Stepper-Lab_User_Manual_v{version}.pdf
+    eyebrow: Open-source simulation model
+    cover_image: assets/images/hero-3d.svg
+    appendices: [changelog.md, LICENSE.md]
+    unnumbered: [about.md]
+    web_only: [index.md]
+    keywords: stepper motor, simulation, Scilab, Xcos, model-based development, MIL, SIL, current control
+    vendor_trademarks: >-
+      STM32 is a registered trademark of STMicroelectronics International N.V. Other product,
+      motor and board names are used only to identify the hardware and tools the model
+      describes; Stepper-Lab is not affiliated with or endorsed by their owners.
+
+extra_css:
+  - assets/stylesheets/extra.css
+  - https://unpkg.com/katex@0.16.9/dist/katex.min.css
+
+extra_javascript:
+  - assets/javascripts/katex.js
+  - https://unpkg.com/katex@0.16.9/dist/katex.min.js
+  - https://unpkg.com/katex@0.16.9/dist/contrib/auto-render.min.js
+
+plugins:
+  - search
+  - autorefs
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg

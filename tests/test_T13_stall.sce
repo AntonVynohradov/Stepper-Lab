@@ -1,12 +1,12 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T13_stall.sce
 // Description: T13: stall detection of Stepper-C 1.1.0 in the Scilab prototype
 //              (stall_init / stall_observe / stall_check in sim_closed_loop, with the
 //              overcurrent trip of the library). Scenarios of sim_stall_cases: must
-//              trip (SSTEP_FAULT_STALL within stall_time_ms + 20 ms of the pull-out)
-//              and must not trip (no fault, no step lost). Averaged stage with the
+//              trip (SSTEP_FAULT_STALL in the first fault, within stall_time_ms + 20 ms
+//              of the pull-out) and must not trip (no fault, no step lost). Averaged stage with the
 //              ngspice leg voltage error for every scenario, switching stage for the
 //              scenarios marked proto_sw (the switching prototype is slow; S06 runs
 //              all of them on both stages in C). The results are kept in

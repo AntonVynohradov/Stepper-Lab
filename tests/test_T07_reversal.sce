@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T07_reversal.sce
 // Description: T07: direction change +4 -> -4 rev/s with the deceleration limit:

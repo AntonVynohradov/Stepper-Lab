@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/run_sil_backend.sce
 // Description: Software-in-the-loop tests S01..S06 with the numeric backend of the
@@ -22,6 +22,7 @@ exec(fullfile(rb_dir, "..", "loader.sce"), -1);
 exec(fullfile(rb_dir, "sim_check.sci"), -1);
 exec(fullfile(rb_dir, "sim_stall_cases.sci"), -1);
 exec(fullfile(rb_dir, "sim_stall_run.sci"), -1);
+exec(fullfile(rb_dir, "sim_config_report.sci"), -1);
 
 sil_child = %t;                 // test_S06_stall.sce does not start another process
 sil_test_backend = convstr(getenv("SSTEP_SIL_BACKEND", "FLOAT"), "u");
@@ -32,8 +33,8 @@ if rb_proto <> "" then
     end
 end
 
-rb_fail = 0;
-rb_tests = ["test_S01_sil.sce", "test_S06_stall.sce"];
+rb_fail = sim_config_report();
+rb_tests = ["test_S01_sil.sce", "test_S07_lab.sce", "test_S06_stall.sce"];
 for rb_k = 1:size(rb_tests, "*")
     mprintf("\n== %s (%s)\n", rb_tests(rb_k), sil_test_backend);
     sim_failures = 0;

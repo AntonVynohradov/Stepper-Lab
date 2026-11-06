@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        params/ctrl_default.sci
 // Description: Default current controller and stall detection settings (Stepper-C:
@@ -24,9 +24,9 @@ function c = ctrl_default()
     // Stall detection (Stepper-C 1.1.0, back-EMF observer). Off by default, as in the
     // library; tests T13 / S06 switch it on with stall_time_ms = 50. Time, filter and
     // speed are the example of the library documentation (17HS19, ESC1); the
-    // synchronism threshold is lowered from its example 50 % to 30 % for runs up to
-    // 11 rev/s at 24 V (shared leg, 2 A: back-EMF along the motion 35 % of Ke w at the
-    // voltage limit; 50 % and 40 % trip there although the rotor stays synchronous).
+    // synchronism threshold is 30 % instead of its example 50 %: back-EMF along the motion
+    // is 35 % of Ke w at 11 rev/s, 24 V (shared leg, 2 A). The window on the d axis of the
+    // library accepts that lag as well, so 50 % also runs there.
     c.stall_time_ms   = 0;     // ms, condition time before SSTEP_FAULT_STALL; 0 = off
     c.stall_filter_us = 1000;  // us, time constant of the back-EMF low-pass filter
     c.stall_speed     = 1600;  // microsteps/s (0.5 rev/s at M = 16): slip threshold,

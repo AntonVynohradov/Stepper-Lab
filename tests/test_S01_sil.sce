@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_S01_sil.sce
 // Description: S01..S04: software in the loop. The Xcos diagram (Stepper-C C code +
@@ -108,7 +108,7 @@ if sil_can_run then
         if n_s == 1 then
             brd5.stage = "switching";
         elseif n_s == 3 then
-            brd5.leg_error = stage_esc1_spice().leg_error;
+            brd5.leg_error = stage_active().leg_error;
         end
         ctx = struct("cmds", [0, 2, 12800], "brd", brd5, "loads", [0, 0], "locked", 0, ..
                      "T_end", 0.1);

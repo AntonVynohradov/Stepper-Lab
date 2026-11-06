@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        loader.sce
 // Description: Loads the parameter and model functions. Run once per session:
@@ -28,4 +28,4 @@ getd(fullfile(sim_root, "xcos", "blocks"));
 loadXcosLibs();
 loadScicos();
 
-mprintf("sfs-stepper-sim loaded from %s\n", sim_root);
+mprintf("Stepper-Lab loaded from %s\n", sim_root);

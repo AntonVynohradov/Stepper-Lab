@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        model/stall_check.sci
 // Description: Stall decision of one slow loop period (Stepper-C 1.1.0:
@@ -21,9 +21,11 @@ function [sd, trip] = stall_check(sd, t, vel_next)
     // trip      %t: SSTEP_FAULT_STALL (the condition persisted for stall_time_ms)
     //
     // Decision against the command of the period that just ended (sd.vel, sd.eref):
-    // in motion (|v| >= stall_speed) sgn(v) eq < sync_pct / 100 |Ke w|; at rest or slow
-    // |(ed, eq - Ke w) - o| > e_s with o the running mean (time constant N periods).
-    // Up/down counter, trip at N.
+    // in motion (|v| >= stall_speed) sgn(v) eq < sync_pct / 100 |Ke w| with ed inside
+    // [-(|Ke w| / 3 + R I / 10), |Ke w| / 3 + 2 R I / 5], a rotor that does not turn;
+    // sgn(v) eq < -(|Ke w| / 2 + e_s), a reversed back-EMF, keeps the condition true for
+    // N / 2 periods. At rest or slow |(ed, eq - Ke w) - o| > e_s with o the running mean
+    // (time constant N periods). Up/down counter, trip at N.
     OFF_ONE = 65536;
     ed = round(sd.emf(1) * 1000);                  // [mV], rounded as real_to_units
     eq = round(sd.emf(2) * 1000);
@@ -36,7 +38,13 @@ function [sd, trip] = stall_check(sd, t, vel_next)
         else
             along = -eq;
         end
-        bad = along * 100 < sd.sync * abs(eref);
+        er = abs(eref);
+        bad = (along * 100 < sd.sync * er) & ..
+              (ed <= floor(er / 3) + floor(sd.ri * 2 / 5)) & ..
+              (ed >= -(floor(er / 3) + floor(sd.ri / 10)));
+        if along * 2 < -(er + 2 * sd.e_s) then
+            sd.hold = floor(sd.N / 2);
+        end
     else
         dev = [ed; eq - eref];
         for k = 1:2
@@ -45,6 +53,10 @@ function [sd, trip] = stall_check(sd, t, vel_next)
         end
         dmag = sqrt(dev(1)^2 + dev(2)^2);
         bad = dev(1)^2 + dev(2)^2 > sd.e_s^2;
+    end
+    if sd.hold <> 0 then
+        sd.hold = sd.hold - 1;
+        bad = %t;
     end
     if bad then
         sd.count = sd.count + 1;

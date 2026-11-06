@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340" role="img" aria-label="MIL and SIL use one layout">
+<title>MIL and SIL use one layout</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5A6472"/></marker><marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F8B9A"/></marker><marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#E07A00"/></marker><marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E7D32"/></marker></defs>
+<rect x="0" y="0" width="960" height="340" rx="12" fill="#FFFFFF"/>
+<rect x="30" y="130" width="170" height="90" rx="10" fill="#F2F5FA" stroke="#C9D3E0" stroke-width="1.5"/>
+<text x="115.0" y="156.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Inputs</text>
+<text x="115.0" y="176.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">same limits</text>
+<text x="115.0" y="193.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">NaN keeps last value</text>
+<rect x="760" y="130" width="170" height="90" rx="10" fill="#FFF7EC" stroke="#E07A00" stroke-width="1.5"/>
+<text x="845.0" y="156.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Plant + Outputs</text>
+<text x="845.0" y="176.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">sstep_plant.c, in C</text>
+<text x="845.0" y="193.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">columns of sil</text>
+<rect x="270" y="50" width="400" height="110" rx="10" fill="#E6F4F5" stroke="#0F8B9A" stroke-width="1.5"/>
+<text x="470.0" y="77.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">SIL: STEPPER_CTRL_IO</text>
+<text x="470.0" y="97.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">sstep_xcos.c calls the Stepper-C library</text>
+<text x="470.0" y="114.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">FIXED or FLOAT, one per Scilab session</text>
+<text x="470.0" y="131.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">compiled once by sil_build()</text>
+<rect x="270" y="190" width="400" height="110" rx="10" fill="#E8F0FB" stroke="#1E5AA8" stroke-width="1.5"/>
+<text x="470.0" y="217.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">MIL: STEPPER_CTRL_MIL</text>
+<text x="470.0" y="237.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">ctrl_mil_block() calls ctrl_period()</text>
+<text x="470.0" y="254.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">Scilab code of one controller period</text>
+<text x="470.0" y="271.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">much slower than SIL</text>
+<line x1="200" y1="160" x2="268" y2="110" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="200" y1="190" x2="268" y2="240" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="670" y1="105" x2="758" y2="155" stroke="#0F8B9A" stroke-width="1.6" marker-end="url(#arrow-teal)"/>
+<line x1="670" y1="245" x2="758" y2="195" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="845" y="110" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle">PWM compare in,</text>
+<text x="845" y="126" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle">ADC counts back</text>
+</svg>

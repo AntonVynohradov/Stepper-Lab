@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+# Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 #
 # Description: Exports the motor parameters (params/motor_*.sci, the source of
 #              truth) to params/motor_*.json for C users of the model
-#              (sil/c/sstep_plant.c): the firmware simulation of
-#              sfs-stepper-driver reads them at build time. The stage parameters
+#              (sil/c/sstep_plant.c), which read them at build time. The stage parameters
 #              (params/stage_esc1_spice.json) come from sfs-stepper-power-spice.
 #
 # Author:      Anton Vynohradov
@@ -68,7 +67,7 @@ def render(path):
     values = parse(path)
     doc = {
         "format": FORMAT,
-        "source": f"sfs-stepper-sim params/{os.path.basename(path)} (tools/export_params.py)",
+        "source": f"Stepper-Lab params/{os.path.basename(path)} (tools/export_params.py)",
         "name": values.get("name", os.path.splitext(os.path.basename(path))[0]),
         "units": KEYS,
     }

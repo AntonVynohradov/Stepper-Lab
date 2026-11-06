@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/sim_stall_run.sci
 // Description: Test helper: runs a stall detection scenario (sim_stall_cases) on the
@@ -19,8 +19,9 @@ function brd = sim_stall_board(s, stage)
     brd = board_bg431b_esc1();
     brd.topology = s.topology;
     brd.stage = stage;
+    brd.vbus = s.vbus;
     if stage == "avg" then
-        brd.leg_error = stage_esc1_spice().leg_error;
+        brd.leg_error = stage_active().leg_error;
     end
 endfunction
 
@@ -107,31 +108,20 @@ function r = sim_stall_eval(t, d, pcmd, prot, faults, level, M)
          abs(pcmd($) - prot($)) / M];
 endfunction
 
-function txt = sim_stall_flags(flags)
-    // names of the fault flags of Stepper-C
-    names = ["OVERCURRENT", "OVERVOLTAGE", "UNDERVOLTAGE", "HAL", "EXTERNAL", "STALL"];
-    txt = "";
-    for b = 0:5
-        if bitand(flags, 2^b) <> 0 then
-            txt = txt + " " + names(b + 1);
-        end
-    end
-    txt = stripblanks(txt);
-endfunction
-
 function [ok, detail] = sim_stall_verdict(s, r, c)
     // s  scenario, r  result (sim_stall_eval), c  controller (stall_time_ms)
-    // must trip:     SSTEP_FAULT_STALL first, 0 < delay after the pull-out (90 deg) <
-    //                stall_time_ms + 20 ms
+    // must trip:     SSTEP_FAULT_STALL in the first fault (with SSTEP_FAULT_OVERCURRENT when
+    //                the slip reaches the trip before stall_time_ms), 0 < delay after the
+    //                pull-out (90 deg) < stall_time_ms + 20 ms
     // must not trip: no fault, less than 2 full steps from the command at the end
     if s.trip then
-        ok = (r(7) == 32) & (r(2) >= 0) & (r(3) > 0) & (r(3) < c.stall_time_ms / 1000 + 0.02);
+        ok = (bitand(r(7), 32) <> 0) & (r(2) >= 0) & (r(3) > 0) & (r(3) < c.stall_time_ms / 1000 + 0.02);
         if r(8) < 0 then
             detail = msprintf("no fault, pull-out at %.1f ms, largest detector level %d %%", ..
                               r(2) * 1e3, r(5));
-        elseif r(7) == 32 then
-            detail = msprintf("SSTEP_FAULT_STALL at %.1f ms, %.1f ms after the pull-out (90 deg at %.1f ms), %.1f full steps lost", ..
-                              r(1) * 1e3, r(3) * 1e3, r(2) * 1e3, r(4));
+        elseif bitand(r(7), 32) <> 0 then
+            detail = msprintf("%s at %.1f ms, %.1f ms after the pull-out (90 deg at %.1f ms), %.1f full steps lost", ..
+                              sim_stall_flags(r(7)), r(1) * 1e3, r(3) * 1e3, r(2) * 1e3, r(4));
         else
             detail = msprintf("first fault %s at %.1f ms (%.1f ms after the pull-out), %.1f full steps lost, largest stall detector level %d %%", ..
                               sim_stall_flags(r(7)), r(8) * 1e3, (r(8) - r(2)) * 1e3, r(4), r(5));

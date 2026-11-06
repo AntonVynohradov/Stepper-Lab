@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation
+# Stepper-Lab: Stepper motor model and control simulation
 #
 # Description: Python twin of the tests T08 (parameter uncertainty), T11 (rotor
 #              resonance, detent torque) and T12 (dry friction); the Scilab tests

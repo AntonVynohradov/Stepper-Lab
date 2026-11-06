@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "source": "sfs-stepper-sim params/motor_17hs19_2004s1.sci (tools/export_params.py)",
+  "source": "Stepper-Lab params/motor_17hs19_2004s1.sci (tools/export_params.py)",
   "name": "17HS19-2004S1",
   "units": {
     "R": "Ohm",

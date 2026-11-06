@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        params/motor_17hs19_2004s1.sci
 // Description: Parameters of the StepperOnline 17HS19-2004S1 (NEMA 17, bipolar,

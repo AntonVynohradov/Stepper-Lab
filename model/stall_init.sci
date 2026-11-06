@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        model/stall_init.sci
 // Description: Stall detector constants and state (Stepper-C 1.1.0: check_stall(),
@@ -50,6 +50,7 @@ function sd = stall_init(mot, brd, c, st)
     sd.nsm = nsm;
     sd.speed = c.stall_speed;
     sd.sync = c.stall_sync_pct;
+    sd.ri = floor(r_mohm * round(st.i_run * 1000) / 1000);  // R I_run [mV]
 
     // state, as after sstep_enable() (sstep_stall_reset)
     sd.i_prev = zeros(2, 1);   // phase currents of the previous fast period [A]
@@ -60,6 +61,7 @@ function sd = stall_init(mot, brd, c, st)
     sd.vel = 0;                // commanded velocity of the slow period in use [usteps/s]
     sd.eref = 0;               // its back-EMF Ke w [mV]
     sd.count = 0;              // up/down counter
+    sd.hold = 0;               // slow periods the condition stays true after a reversal
     sd.peak = 0;               // largest counter value
     sd.t_fault = -1;           // time of SSTEP_FAULT_STALL [s], -1 = none
     sd.hist = zeros(0, 8);     // per slow period: [t ed eq eref vel bad count |dev|]

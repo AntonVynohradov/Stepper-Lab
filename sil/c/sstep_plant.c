@@ -1,5 +1,5 @@
 /*******************************************************************************
- * sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+ * Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
  *
  * File:        sil/c/sstep_plant.c
  * Description: Plant model in portable C (see sstep_plant.h). State

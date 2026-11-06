@@ -1,9 +1,9 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        xcos/blocks/STEPPER_CTRL.sci
 // Description: Xcos block: the Stepper-C library (fast and slow loop), compiled
-//              from sfs-stepper-ctrl. Computational function sstep_xcos_ctrl.
+//              from Stepper-C. Computational function sstep_xcos_ctrl.
 //
 // Author:      Anton Vynohradov
 // Email:       avynohradov@systemfromscratch.com

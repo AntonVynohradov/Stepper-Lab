@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T05_speed_ramp.sce
 // Description: T05: move of 2 revolutions with the trapezoidal profile (5 rev/s,

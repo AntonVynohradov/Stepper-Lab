@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-label="Architecture of Stepper-Lab">
+<title>Architecture of Stepper-Lab</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5A6472"/></marker><marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F8B9A"/></marker><marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#E07A00"/></marker><marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E7D32"/></marker></defs>
+<rect x="0" y="0" width="960" height="400" rx="12" fill="#FFFFFF"/>
+<rect x="30" y="30" width="240" height="66" rx="10" fill="#E6F4F5" stroke="#0F8B9A" stroke-width="1.5"/>
+<text x="150.0" y="52.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Stepper-C</text>
+<text x="150.0" y="72.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">C sources, compiled by sil_build()</text>
+<rect x="690" y="30" width="240" height="66" rx="10" fill="#FFF7EC" stroke="#E07A00" stroke-width="1.5"/>
+<text x="810.0" y="52.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="14" font-weight="bold" fill="#0B2545" text-anchor="middle">sfs-stepper-power-spice</text>
+<text x="810.0" y="72.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">stage file: ngspice results (JSON)</text>
+<rect x="20" y="130" width="920" height="250" rx="12" fill="#FFFFFF" stroke="#C9D3E0" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="40" y="152" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="14" font-weight="bold" fill="#1E5AA8" text-anchor="start">Stepper-Lab</text>
+<rect x="40" y="215" width="150" height="90" rx="10" fill="#F2F5FA" stroke="#C9D3E0" stroke-width="1.5"/>
+<text x="115.0" y="232.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Inputs</text>
+<text x="115.0" y="252.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">command</text>
+<text x="115.0" y="269.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">run current</text>
+<text x="115.0" y="286.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">load torque</text>
+<rect x="260" y="170" width="200" height="80" rx="10" fill="#E6F4F5" stroke="#0F8B9A" stroke-width="1.5"/>
+<text x="360.0" y="199.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Controller: SIL</text>
+<text x="360.0" y="219.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">the C library in a block</text>
+<rect x="260" y="268" width="200" height="80" rx="10" fill="#E8F0FB" stroke="#1E5AA8" stroke-width="1.5"/>
+<text x="360.0" y="297.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Controller: MIL</text>
+<text x="360.0" y="317.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">the Scilab prototype</text>
+<rect x="590" y="200" width="150" height="120" rx="10" fill="#FFF7EC" stroke="#E07A00" stroke-width="1.5"/>
+<text x="665.0" y="232.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Plant (C)</text>
+<text x="665.0" y="252.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">power stage</text>
+<text x="665.0" y="269.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">motor</text>
+<text x="665.0" y="286.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">ADC</text>
+<rect x="790" y="215" width="130" height="90" rx="10" fill="#F2F5FA" stroke="#C9D3E0" stroke-width="1.5"/>
+<text x="855.0" y="232.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="15" font-weight="bold" fill="#0B2545" text-anchor="middle">Outputs</text>
+<text x="855.0" y="252.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">named scopes</text>
+<text x="855.0" y="269.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">variable sil</text>
+<text x="855.0" y="286.5" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#5A6472" text-anchor="middle">report</text>
+<line x1="190" y1="235" x2="258" y2="215" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="190" y1="285" x2="258" y2="305" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="460" y1="195" x2="480" y2="195" stroke="#5A6472" stroke-width="1.6"/>
+<line x1="460" y1="325" x2="480" y2="325" stroke="#5A6472" stroke-width="1.6"/>
+<line x1="480" y1="195" x2="480" y2="325" stroke="#5A6472" stroke-width="1.6"/>
+<line x1="480" y1="240" x2="588" y2="240" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="534.0" y="232.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle">PWM compare</text>
+<line x1="588" y1="285" x2="480" y2="285" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="534.0" y="303.0" font-family="Inter, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif" font-size="12" font-weight="normal" fill="#5A6472" text-anchor="middle">ADC counts</text>
+<line x1="740" y1="260" x2="788" y2="260" stroke="#5A6472" stroke-width="1.6" marker-end="url(#arrow)"/>
+<line x1="150" y1="96" x2="330" y2="168" stroke="#0F8B9A" stroke-width="1.6" marker-end="url(#arrow-teal)"/>
+<line x1="810" y1="96" x2="680" y2="198" stroke="#E07A00" stroke-width="1.6" marker-end="url(#arrow-orange)"/>
+</svg>

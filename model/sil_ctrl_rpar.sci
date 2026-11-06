@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        model/sil_ctrl_rpar.sci
 // Description: Parameter vector of the Stepper-C Xcos block (STEPPER_CTRL) from the

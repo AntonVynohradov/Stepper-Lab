@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation
+# Stepper-Lab: Stepper motor model and control simulation
 #
 # Description: Python twin of the Scilab motor model (model/*.sci). Same equations,
 #              same parameters, independent solver (SciPy). It

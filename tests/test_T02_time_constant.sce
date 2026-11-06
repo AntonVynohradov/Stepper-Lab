@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T02_time_constant.sce
 // Description: T02: voltage step, locked rotor: i(t) = V/R (1 - exp(-t/tau)),

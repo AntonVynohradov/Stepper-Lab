@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        demos/demo_open_loop.sce
 // Description: Demo: rotating voltage vector (open loop) at 5 Hz electrical;

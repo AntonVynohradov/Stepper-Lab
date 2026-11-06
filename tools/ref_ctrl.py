@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation
+# Stepper-Lab: Stepper motor model and control simulation
 #
 # Description: Python twin of the discrete current control loop (model/bridge_avg.sci,
 #              model/current_pi.sci, model/sim_closed_loop.sci): averaged power stage

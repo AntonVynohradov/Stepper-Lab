@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        params/stage_esc1_spice.sci
 // Description: Switching stage parameters of the B-G431B-ESC1 from ngspice.

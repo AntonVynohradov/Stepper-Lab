@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        xcos/blocks/STEPPER_PLANT.sci
 // Description: Xcos block: averaged power stage, two-phase hybrid stepper motor

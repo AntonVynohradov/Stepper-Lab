@@ -6,8 +6,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Public name: **Stepper-Lab** (file banners, window, README).
+- `README.md` is short; its content moved to the documentation.
+- `sil_report`: larger figure, legends inside the panels, scales from the run up to shortly after the
+  first fault (`ylim` of `sil_report_data`).
+
+### Fixed
+
+- `sil_ctrl_dir` finds a clone of the public repository, the folder `Stepper-C`, in `ext/` or next to
+  this repository, before the old name `sfs-stepper-ctrl`.
+- The window: the list of test groups starts on `All`; buttons look like buttons.
+
 ### Added
 
+- Documentation website (MkDocs Material, `mkdocs.yml`, `docs/`, published by
+  `.github/workflows/documentation.yml`) and PDF manual (`tools/docs/build_manual.py`), from one set
+  of sources. The version comes from the git tag.
+- `tools/docs/export_figures.sce` writes the data of the result figures to `docs/assets/data/`;
+  `tools/docs/diagrams.py` draws them; `tools/docs/check_examples.sce` runs the examples of the
+  documentation.
+- **stepper_lab** (`start_lab.sce`, `xcos/lab_diagram.sci`): a model for experiments, beside
+  the unchanged `stepper_sil`. Superblocks Inputs, Controller, Plant, Outputs; any Xcos source
+  drives the motion command (velocity or position), the run current and the load torque
+  (`STEPPER_CTRL_IO`, `STEPPER_PLANT_IO`, `STEPPER_MONITOR_IO`); inputs out of range are
+  limited, a fault does not end the simulation; five named scopes; `sil.values` columns 20 to
+  23; `sil_report(sil)` (`sil_report_data` without graphics).
+- **MIL** (`xcos/stepper_lab_mil.zcos`, `STEPPER_CTRL_MIL`): the Scilab prototype in the same
+  layout. `model/ctrl_period.sci` holds one controller period, which `sim_closed_loop` calls
+  too, so the algorithm has one implementation.
+- **Window** (`lab_window`): library folder, ngspice stage file, backend, MIL or SIL,
+  scenarios (`lab_scenarios`, `lab_run`), comparison, tests in a second Scilab process.
+  Settings per user in `SCIHOME/sfs_stepper_lab.json` (`lab_settings_*`).
+- Library folder: `sil_ctrl_dir` also looks in the saved folder, after `SSTEP_CTRL_DIR`.
+- ngspice stage file: `stage_load`, `stage_active` (`SSTEP_STAGE_FILE`, saved, default);
+  `board_bg431b_esc1` and the tests use the active file. `tests/run_all.sce` prints the library
+  and the stage file, and fails on a selected file that is not valid. X04 computes its reference
+  with the Python twin when another file is active (`tools/ref_switching.py --stage --out`,
+  `SSTEP_PYTHON`).
+- `SSTEP_TEST_FILTER` selects tests in `tests/run_all.sce`. Tests C01 to C03, S07 to S11, M01.
 - Stall detection of Stepper-C 1.1.0 in the prototype: back-EMF observer
   (`stall_observe`, fast loop), decision with the up/down counter and the learned
   offset at rest (`stall_check`, slow loop, integer millivolts), constants
@@ -28,16 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   T08 parameter uncertainty, T11 detent sweep and mid-band), on the averaged stage
   with the leg voltage error and on the switching stage; the Xcos run equals the
   prototype including the time of the fault. Scenarios in `tests/sim_stall_cases.sci`.
-  Results in the README (Stall detection). Not solved by the detector as designed,
-  reported as failing tests: the T06 load step (0.5 N·m at 1 rev/s) and the overload at
-  start end in `SSTEP_FAULT_OVERCURRENT` 3.7 / 39 ms after the pull-out with the stall
-  level at 4 / 30–38 % (a fast backward slip keeps `eq` above the threshold half of the
-  time); `stall_sync_pct` 50 and 40 trip at 11 rev/s without lost steps.
+  Results in the README (Stall detection). Must-trip scenarios of a heavy axis and
+  must-not-trip scenarios with heavy load and at the voltage limit, for the changes of the
+  detector in Stepper-C (window on `e_d`, hold after a reversed back-EMF, stall flag with
+  the overcurrent trip), ported to the prototype. The must-trip verdict asks for
+  `SSTEP_FAULT_STALL` in the first fault, also with `SSTEP_FAULT_OVERCURRENT`.
 - `sil/c/sstep_plant.[ch]`: the plant model (averaged and switching power stage,
   motor, ADC) in portable C, double or single precision (`SSTEP_PLANT_FLOAT`), the
   switching stage optional (`SSTEP_PLANT_SWITCHING`); outputs off as zero voltage or
-  open windings. Used by the Xcos plant block and by the firmware simulation of
-  sfs-stepper-driver.
+  open windings. Used by the Xcos plant block and by builds for other targets.
 - Averaged stage with the ngspice leg voltage error table (`brd.leg_error`,
   `stage_esc1_spice().leg_error`); test S05 against the switching stage.
 - `tools/export_params.py`: `params/motor_*.json` from `params/motor_*.sci`
@@ -134,6 +171,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `sil_build`: a rebuild compiles every file. The makefile does not follow the headers, so a
+  changed structure with an old object file overwrote memory (S01 to S06 gave nonsense).
+- `tests/run_all.sce` exits with status 1 on a failure also under `WScilex-cli` (mode `NW`).
 - SIL with Stepper-C 1.1.0: `make_config()` left the new `stall_*` fields
   uninitialised, `sstep_init()` returned `SSTEP_ERR_PARAM` and S01–S05 failed; the
   configuration is now zeroed first.

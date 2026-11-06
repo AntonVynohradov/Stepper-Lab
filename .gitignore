@@ -13,3 +13,9 @@ results/
 
 # Software in the loop: compiled library (rebuilt by sil_build)
 sil/build/
+
+# Documentation: site, manual, and the manual copied into the site by CI
+build/
+site/
+docs/downloads/
+docs/superpowers/

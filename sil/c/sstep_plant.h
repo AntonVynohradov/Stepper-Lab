@@ -1,5 +1,5 @@
 /*******************************************************************************
- * sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+ * Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
  *
  * File:        sil/c/sstep_plant.h
  * Description: Plant model in portable C: power stage (averaged, optionally with
@@ -7,7 +7,7 @@
  *              time and diodes), two-phase hybrid stepper motor (RK4) and current
  *              sensing (ADC counts). The single implementation of the model in C:
  *              used by the Xcos plant block (sstep_xcos.c, double) and by the
- *              firmware simulation of sfs-stepper-driver (float, averaged only).
+ *              builds for other targets (float, averaged only).
  *              Same equations as the Scilab prototype (model directory).
  *
  * Author:      Anton Vynohradov

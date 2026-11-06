@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        sil/sil_build.sci
 // Description: Compiles the Stepper-C library and the Xcos blocks (sil/c) into a
@@ -51,6 +51,7 @@ function sil_build(backend, force)
     src = [];
     try
         cdir = sil_ctrl_dir();
+        mprintf("Stepper-C sources: %s\n", cdir);
         src = [fullfile(cdir, "sstep.h");
                listfiles(fullfile(cdir, "inc", "*.h"));
                listfiles(fullfile(cdir, "src", "*.h"));
@@ -95,6 +96,12 @@ function sil_build(backend, force)
         for k = 1:size(src, "*")
             copyfile(src(k), bdir);
         end
+        // the makefile does not follow the headers: a changed structure with an old object
+        // file overwrites memory, so a rebuild compiles every file
+        objs = [listfiles(fullfile(bdir, "Release", "*.obj")); listfiles(fullfile(bdir, "*.o"))];
+        for k = 1:size(objs, "*")
+            mdelete(objs(k));
+        end
         cfiles = listfiles(fullfile(bdir, "*.c"));
         files = [];
         for k = 1:size(cfiles, "*")
@@ -117,7 +124,8 @@ function sil_build(backend, force)
         end
         mprintf("Building Stepper-C (%s) and the Xcos blocks in %s\n", backend, bdir);
         tbx_build_src(["sstep_xcos_ctrl", "sstep_xcos_plant", "sstep_xcos_monitor", ..
-                       "sstep_xcos_check"], ..
+                       "sstep_xcos_check", "sstep_xcos_ctrl_io", "sstep_xcos_plant_io", ..
+                       "sstep_xcos_monitor_io"], ..
                       files, "c", bdir, "", ldflags, cflags, "", "", ..
                       "sstep_sil_" + convstr(backend, "l"));
     end

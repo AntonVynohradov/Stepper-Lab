@@ -1,3 +1,14 @@
 # Python twin of the motor model (tools/ref_model.py)
 numpy>=1.24
 scipy>=1.10
+
+# Documentation (mkdocs.yml)
+mkdocs>=1.6
+mkdocs-material
+mkdocs-autorefs
+
+# PDF manual (tools/docs/build_manual.py); needs the Pango library, see docs/guide.md
+weasyprint>=62
+ziamath>=0.13     # formulas as SVG in the PDF (WeasyPrint runs no JavaScript)
+pymdown-extensions
+pyyaml

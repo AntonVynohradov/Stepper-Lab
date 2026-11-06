@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        xcos/sil_diagram.sci
 // Description: Builds the software-in-the-loop Xcos diagram (Stepper-C + motor model)

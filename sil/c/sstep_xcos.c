@@ -1,5 +1,5 @@
 /*******************************************************************************
- * sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+ * Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
  *
  * File:        sil/c/sstep_xcos.c
  * Description: Xcos computational functions (type 4) for software-in-the-loop:
@@ -7,7 +7,7 @@
  *              - sstep_xcos_plant:   power stage (averaged or switching with dead
  *                                    time and diodes) + motor + ADC (RK4): a thin
  *                                    wrapper of sstep_plant.c, the model shared
- *                                    with the firmware simulation,
+ *                                    with builds for other targets,
  *              - sstep_xcos_monitor: signals for scopes and the workspace,
  *              - sstep_xcos_check:   configuration check, called from Scilab.
  *              The motor and the power stage use the same equations as the
@@ -68,6 +68,11 @@ enum
 #define CMD_RUN 2
 #define CMD_STOP 3
 
+/* lab_mode of the signal blocks */
+#define LAB_MODE_TABLE 0
+#define LAB_MODE_VELOCITY 1
+#define LAB_MODE_POSITION 2
+
 #define PI_D 3.14159265358979323846
 
 /* ==============================================================================
@@ -87,6 +92,10 @@ struct sil_ctrl
     int64_t phi_turns; /* unwrapped electrical angle applied [2^-32 turn] */
     uint32_t phi_last;
     double i_full;
+    /* signal inputs, sstep_xcos_ctrl_io */
+    double cmd_applied;
+    double ma_applied;
+    int limited;
 };
 
 static int hal_pwm(void* ctx, const uint16_t cmp[SSTEP_LEGS_MAX])
@@ -203,6 +212,109 @@ static int apply_command(struct sil_ctrl* s, int kind, double value)
     return r; /* other kinds (load torque) belong to the plant */
 }
 
+/* Creates the driver of a controller block and enables it; NULL after a Coserror. */
+static struct sil_ctrl* ctrl_create(scicos_block* blk)
+{
+    const double* p = blk->rpar;
+    struct sstep_config cfg;
+    struct sil_ctrl* s;
+    int r;
+
+    if ((blk->nrpar < C_NPAR) || (blk->nrpar != C_NPAR + 3 * (int)lround(p[C_NCMD])))
+    {
+        Coserror("Stepper-C block: wrong parameter vector (use sil_ctrl_rpar)");
+        return NULL;
+    }
+    s = (struct sil_ctrl*)calloc(1, sizeof(*s));
+    if (s == NULL)
+    {
+        Coserror("Stepper-C block: out of memory");
+        return NULL;
+    }
+    *blk->work = s;
+    make_config(p, &cfg, s);
+    r = sstep_init(&s->drv, &cfg);
+    if (r != SSTEP_OK)
+    {
+        Coserror("Stepper-C: sstep_init failed: %s", status_text(r));
+        return NULL;
+    }
+    s->ratio = cfg.ctrl.fast_loop_hz / cfg.ctrl.slow_loop_hz;
+    s->Ts = 1.0 / (double)cfg.ctrl.fast_loop_hz;
+    s->ncmd = (int)lround(p[C_NCMD]);
+    s->i_full = p[C_IFULL] / 1000.0;
+    (void)sstep_enable(&s->drv);
+    return s;
+}
+
+/* Applies the commands of the table due at this slow period; -1 after a Coserror. */
+static int ctrl_apply_table(struct sil_ctrl* s, const double* p, int ignore_state)
+{
+    const double t = (double)s->tick * s->Ts;
+    while ((s->ci < s->ncmd) && (p[C_NPAR + 3 * s->ci] <= t + 1e-12))
+    {
+        const int kind = (int)lround(p[C_NPAR + 3 * s->ci + 1]);
+        const double val = p[C_NPAR + 3 * s->ci + 2];
+        const int r = apply_command(s, kind, val);
+        if ((r != SSTEP_OK) && !(ignore_state && (r == SSTEP_ERR_STATE)))
+        {
+            Coserror("Stepper-C: command %d (kind %d, value %g) at t = %g s: %s",
+                     s->ci + 1, kind, val, t, status_text(r));
+            return -1;
+        }
+        if ((kind == CMD_MOVE) || (kind == CMD_RUN))
+        {
+            s->cmd_applied = val;
+        }
+        s->ci++;
+    }
+    return 0;
+}
+
+/* One fast loop period: the library, the compare values and the 12 monitor values. */
+static void ctrl_fast(struct sil_ctrl* s, const double* in, double* out, double* mon)
+{
+    struct sstep_sample smp;
+    struct sstep_status st;
+    uint32_t used;
+    double ang;
+    double amp;
+
+    smp.i_a = (uint16_t)lround(in[0]);
+    smp.i_b = (uint16_t)lround(in[1]);
+    smp.vbus = (uint16_t)lround(in[2]);
+    (void)sstep_fast_loop(&s->drv, &smp);
+    s->tick++;
+
+    /* angle used in this period: the fast loop advances it after use */
+    const struct sstep_ctx* ctx = sstep_ctx_of_const(&s->drv);
+    used = ctx->cur.angle - (uint32_t)ctx->cur.dangle;
+    s->phi_turns += (int32_t)(used - s->phi_last);
+    s->phi_last = used;
+
+    for (unsigned k = 0; k < SSTEP_LEGS_MAX; k++)
+    {
+        out[k] = (double)s->compare[k];
+    }
+    out[4] = (double)s->enabled;
+
+    (void)sstep_get_status(&s->drv, &st);
+    ang = (double)used * (2.0 * PI_D / 4294967296.0);
+    amp = real_to_d(ctx->cur.i_amp) * s->i_full;
+    mon[0] = (double)s->phi_turns * (2.0 * PI_D / 4294967296.0);
+    mon[1] = (double)st.position;
+    mon[2] = (double)st.velocity;
+    mon[3] = (double)st.state;
+    mon[4] = (double)st.faults;
+    mon[5] = amp * cos(ang);
+    mon[6] = amp * sin(ang);
+    mon[7] = (double)st.emf_d_mv;
+    mon[8] = (double)st.emf_q_mv;
+    mon[9] = (double)st.rotor_velocity;
+    mon[10] = (double)st.load_angle_cdeg;
+    mon[11] = (double)st.stall_level_pct;
+}
+
 /* Inputs:  1 ADC sample [i_a i_b vbus] (counts)
  * Outputs: 1 [compare(4) enabled]
  *          2 [phi(rad, unwrapped) position(usteps) velocity(usteps/s) state faults
@@ -213,100 +325,142 @@ static int apply_command(struct sil_ctrl* s, int kind, double value)
 void sstep_xcos_ctrl(scicos_block* blk, scicos_flag flag)
 {
     struct sil_ctrl* s = (struct sil_ctrl*)(*blk->work);
-    const double* p = blk->rpar;
 
     if (flag == Initialization)
     {
-        struct sstep_config cfg;
-        int r;
-        if ((blk->nrpar < C_NPAR) || (blk->nrpar != C_NPAR + 3 * (int)lround(p[C_NCMD])))
-        {
-            Coserror("Stepper-C block: wrong parameter vector (use sil_ctrl_rpar)");
-            return;
-        }
-        s = (struct sil_ctrl*)calloc(1, sizeof(*s));
-        if (s == NULL)
-        {
-            Coserror("Stepper-C block: out of memory");
-            return;
-        }
-        *blk->work = s;
-        make_config(p, &cfg, s);
-        r = sstep_init(&s->drv, &cfg);
-        if (r != SSTEP_OK)
-        {
-            Coserror("Stepper-C: sstep_init failed: %s", status_text(r));
-            return;
-        }
-        s->ratio = cfg.ctrl.fast_loop_hz / cfg.ctrl.slow_loop_hz;
-        s->Ts = 1.0 / (double)cfg.ctrl.fast_loop_hz;
-        s->ncmd = (int)lround(p[C_NCMD]);
-        s->i_full = p[C_IFULL] / 1000.0;
-        (void)sstep_enable(&s->drv);
+        (void)ctrl_create(blk);
     }
     else if ((flag == OutputUpdate) && (blk->nevprt > 0) && (s != NULL))
     {
-        const double* in = (const double*)blk->inptr[0];
-        double* out = (double*)blk->outptr[0];
-        double* mon = (double*)blk->outptr[1];
-        struct sstep_sample smp;
-        struct sstep_status st;
-        uint32_t used;
-        double ang;
-        double amp;
-
         if ((s->tick % s->ratio) == 0U)
         {
-            const double t = (double)s->tick * s->Ts;
-            while ((s->ci < s->ncmd) && (p[C_NPAR + 3 * s->ci] <= t + 1e-12))
+            if (ctrl_apply_table(s, blk->rpar, 0) != 0)
             {
-                const int kind = (int)lround(p[C_NPAR + 3 * s->ci + 1]);
-                const double val = p[C_NPAR + 3 * s->ci + 2];
-                const int r = apply_command(s, kind, val);
-                if (r != SSTEP_OK)
-                {
-                    Coserror("Stepper-C: command %d (kind %d, value %g) at t = %g s: %s",
-                             s->ci + 1, kind, val, t, status_text(r));
-                    return;
-                }
-                s->ci++;
+                return;
             }
             (void)sstep_slow_loop(&s->drv);
         }
+        ctrl_fast(s, (const double*)blk->inptr[0], (double*)blk->outptr[0],
+                  (double*)blk->outptr[1]);
+    }
+    else if (flag == Ending)
+    {
+        free(s);
+        *blk->work = NULL;
+    }
+}
 
-        smp.i_a = (uint16_t)lround(in[0]);
-        smp.i_b = (uint16_t)lround(in[1]);
-        smp.vbus = (uint16_t)lround(in[2]);
-        (void)sstep_fast_loop(&s->drv, &smp);
-        s->tick++;
-
-        /* angle used in this period: the fast loop advances it after use */
-        const struct sstep_ctx* ctx = sstep_ctx_of_const(&s->drv);
-        used = ctx->cur.angle - (uint32_t)ctx->cur.dangle;
-        s->phi_turns += (int32_t)(used - s->phi_last);
-        s->phi_last = used;
-
-        for (unsigned k = 0; k < SSTEP_LEGS_MAX; k++)
+/* Rounds a signal and limits it to lo .. hi; a NaN gives the last value. Sets the flag when
+ * the limit or the NaN changed the value. In double: long has 32 bits on Windows. */
+static double input_limit(double x, double lo, double hi, double last, int* limited)
+{
+    double v = last;
+    if (isnan(x))
+    {
+        *limited = 1;
+    }
+    else
+    {
+        v = round(x);
+        if (v < lo)
         {
-            out[k] = (double)s->compare[k];
+            v = lo;
+            *limited = 1;
         }
-        out[4] = (double)s->enabled;
+        else if (v > hi)
+        {
+            v = hi;
+            *limited = 1;
+        }
+    }
+    return v;
+}
 
-        (void)sstep_get_status(&s->drv, &st);
-        ang = (double)used * (2.0 * PI_D / 4294967296.0);
-        amp = real_to_d(ctx->cur.i_amp) * s->i_full;
-        mon[0] = (double)s->phi_turns * (2.0 * PI_D / 4294967296.0);
-        mon[1] = (double)st.position;
-        mon[2] = (double)st.velocity;
-        mon[3] = (double)st.state;
-        mon[4] = (double)st.faults;
-        mon[5] = amp * cos(ang);
-        mon[6] = amp * sin(ang);
-        mon[7] = (double)st.emf_d_mv;
-        mon[8] = (double)st.emf_q_mv;
-        mon[9] = (double)st.rotor_velocity;
-        mon[10] = (double)st.load_angle_cdeg;
-        mon[11] = (double)st.stall_level_pct;
+/* Signal inputs of a slow period: limits, then the API only when a value changed. While
+ * the driver is in the fault state nothing is called; -1 after a Coserror. */
+static int ctrl_apply_inputs(struct sil_ctrl* s, const double* p, int mode, double cmd, double amps)
+{
+    struct sstep_status st;
+    int r = SSTEP_OK;
+    int limited = 0;
+    const double i_lim = (p[C_I_RATED] < p[C_ITRIP]) ? p[C_I_RATED] : p[C_ITRIP];
+    double value = s->cmd_applied;
+    const double ma = input_limit(amps * 1000.0, 1.0, i_lim, s->ma_applied, &limited);
+
+    if (mode == LAB_MODE_VELOCITY)
+    {
+        value = input_limit(cmd, -p[C_VMAXS], p[C_VMAXS], s->cmd_applied, &limited);
+    }
+    else if (mode == LAB_MODE_POSITION)
+    {
+        value = input_limit(cmd, -2147483648.0, 2147483647.0, s->cmd_applied, &limited);
+    }
+    s->limited = limited;
+
+    (void)sstep_get_status(&s->drv, &st);
+    if (st.state == SSTEP_STATE_FAULT)
+    {
+        return 0;
+    }
+    if (value != s->cmd_applied)
+    {
+        r = (mode == LAB_MODE_VELOCITY) ? sstep_run(&s->drv, (int32_t)value)
+                                        : sstep_move_to(&s->drv, (int32_t)value);
+        s->cmd_applied = value;
+    }
+    if ((r == SSTEP_OK) && (ma != s->ma_applied))
+    {
+        const double hold = p[C_IHOLD];
+        r = sstep_set_current(&s->drv, (uint32_t)ma, (uint32_t)((hold < ma) ? hold : ma));
+        s->ma_applied = ma;
+    }
+    if (r != SSTEP_OK)
+    {
+        Coserror("Stepper-C: input at t = %g s: %s", (double)s->tick * s->Ts, status_text(r));
+        return -1;
+    }
+    return 0;
+}
+
+/* Inputs:  1 ADC sample [i_a i_b vbus] (counts), 2 motion command (usteps/s or usteps),
+ *          3 run current (A)
+ * Outputs: 1 [compare(4) enabled]
+ *          2 the 12 monitor values of sstep_xcos_ctrl, then applied command, applied run
+ *            current (A), input limit flag (of the last slow period)
+ * ipar: mode (LAB_MODE_*). Activation: one event input at the fast loop rate (fs). */
+void sstep_xcos_ctrl_io(scicos_block* blk, scicos_flag flag)
+{
+    struct sil_ctrl* s = (struct sil_ctrl*)(*blk->work);
+
+    if (flag == Initialization)
+    {
+        s = ctrl_create(blk);
+        if (s != NULL)
+        {
+            s->ma_applied = blk->rpar[C_IRUN];
+        }
+    }
+    else if ((flag == OutputUpdate) && (blk->nevprt > 0) && (s != NULL))
+    {
+        double* mon = (double*)blk->outptr[1];
+        if ((s->tick % s->ratio) == 0U)
+        {
+            const int mode = blk->ipar[0];
+            if ((mode == LAB_MODE_TABLE) && (ctrl_apply_table(s, blk->rpar, 1) != 0))
+            {
+                return;
+            }
+            if (ctrl_apply_inputs(s, blk->rpar, mode, *(const double*)blk->inptr[1],
+                                  *(const double*)blk->inptr[2]) != 0)
+            {
+                return;
+            }
+            (void)sstep_slow_loop(&s->drv);
+        }
+        ctrl_fast(s, (const double*)blk->inptr[0], (double*)blk->outptr[0], mon);
+        mon[12] = s->cmd_applied;
+        mon[13] = s->ma_applied / 1000.0;
+        mon[14] = (double)s->limited;
     }
     else if (flag == Ending)
     {
@@ -343,7 +497,92 @@ struct sil_plant
 {
     struct sstep_plant model;
     struct sstep_plant_adc adc;
+    double load; /* last valid load torque, sstep_xcos_plant_io */
 };
+
+/* Creates the model of a plant block; a Coserror on invalid parameters. */
+static void plant_create(scicos_block* blk)
+{
+    const double* p = blk->rpar;
+    struct sil_plant* s;
+    struct sstep_plant_motor mot;
+    struct sstep_plant_stage stg;
+    int nload;
+    int nerr;
+    if ((blk->nrpar < P_NPAR) || (blk->nz != Z_N))
+    {
+        Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
+        return;
+    }
+    nload = (int)lround(p[P_NLOAD]);
+    nerr = (int)lround(p[P_NERR]);
+    if ((nerr < 0) || (nerr > SSTEP_PLANT_LEG_ERROR_MAX) ||
+        (blk->nrpar != P_NPAR + 2 * nload + 2 * nerr))
+    {
+        Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
+        return;
+    }
+    s = (struct sil_plant*)calloc(1, sizeof(*s));
+    if (s == NULL)
+    {
+        Coserror("Stepper plant block: out of memory");
+        return;
+    }
+    *blk->work = s;
+
+    mot.r = p[P_R];
+    mot.l = p[P_L];
+    mot.kt = p[P_KT];
+    mot.ns = p[P_NS];
+    mot.j = p[P_J];
+    mot.b = p[P_B];
+    mot.td = p[P_TD];
+    mot.tc = p[P_TC];
+    mot.w_c = p[P_WC];
+    stg.topology = (p[P_TOPO] > 0.5) ? SSTEP_PLANT_SHARED_LEG : SSTEP_PLANT_FULL_BRIDGE;
+    stg.model = (p[P_STAGE] > 0.5) ? SSTEP_PLANT_STAGE_SWITCHING : SSTEP_PLANT_STAGE_AVG;
+    stg.off = SSTEP_PLANT_OFF_ZERO_VOLTAGE; /* as the Scilab prototype */
+    stg.locked = p[P_LOCKED] > 0.5;
+    stg.vbus = p[P_VBUS];
+    stg.fs = p[P_FS];
+    stg.period = p[P_PERIOD];
+    stg.nsub = (unsigned)lround(p[P_NSUB]);
+    stg.dead_ns = p[P_DEAD_NS];
+    stg.rds_on = p[P_RDS];
+    stg.vd = p[P_VD];
+    stg.sw_nstep = (unsigned)lround(p[P_SW_NSTEP]);
+    stg.leg_error_n = (unsigned)nerr;
+    for (int k = 0; k < nerr; k++)
+    {
+        stg.leg_error_i[k] = p[P_NPAR + 2 * nload + k];
+        stg.leg_error_v[k] = p[P_NPAR + 2 * nload + nerr + k];
+    }
+    if (sstep_plant_init(&s->model, &mot, &stg) != 0)
+    {
+        Coserror("Stepper plant block: invalid motor or power stage parameters");
+        return;
+    }
+    s->adc.i_full = p[P_IFULL];
+    s->adc.span = p[P_SPAN];
+    s->adc.zero = p[P_ZERO];
+    s->adc.v_full = p[P_VFULL];
+    s->adc.full = p[P_ADC_FULL];
+}
+
+/* The ADC sample and the eight signals of a plant block. */
+static void plant_output(const struct sil_plant* s, double* adc, double* y)
+{
+    const struct sstep_plant* m = &s->model;
+    sstep_plant_adc_sample(m, &s->adc, adc);
+    y[0] = m->x[0];
+    y[1] = m->x[1];
+    y[2] = m->x[2];
+    y[3] = sstep_plant_theta(m);
+    y[4] = m->v[0];
+    y[5] = m->v[1];
+    y[6] = m->peak[0];
+    y[7] = m->peak[1];
+}
 
 /* Input:   1 [compare(4) enabled] from the controller
  * Outputs: 1 ADC sample [i_a i_b vbus] (counts)
@@ -360,83 +599,11 @@ void sstep_xcos_plant(scicos_block* blk, scicos_flag flag)
 
     if (flag == Initialization)
     {
-        struct sstep_plant_motor mot;
-        struct sstep_plant_stage stg;
-        int nload;
-        int nerr;
-        if ((blk->nrpar < P_NPAR) || (blk->nz != Z_N))
-        {
-            Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
-            return;
-        }
-        nload = (int)lround(p[P_NLOAD]);
-        nerr = (int)lround(p[P_NERR]);
-        if ((nerr < 0) || (nerr > SSTEP_PLANT_LEG_ERROR_MAX) ||
-            (blk->nrpar != P_NPAR + 2 * nload + 2 * nerr))
-        {
-            Coserror("Stepper plant block: wrong parameter vector (use sil_plant_rpar)");
-            return;
-        }
-        s = (struct sil_plant*)calloc(1, sizeof(*s));
-        if (s == NULL)
-        {
-            Coserror("Stepper plant block: out of memory");
-            return;
-        }
-        *blk->work = s;
-
-        mot.r = p[P_R];
-        mot.l = p[P_L];
-        mot.kt = p[P_KT];
-        mot.ns = p[P_NS];
-        mot.j = p[P_J];
-        mot.b = p[P_B];
-        mot.td = p[P_TD];
-        mot.tc = p[P_TC];
-        mot.w_c = p[P_WC];
-        stg.topology = (p[P_TOPO] > 0.5) ? SSTEP_PLANT_SHARED_LEG : SSTEP_PLANT_FULL_BRIDGE;
-        stg.model = (p[P_STAGE] > 0.5) ? SSTEP_PLANT_STAGE_SWITCHING : SSTEP_PLANT_STAGE_AVG;
-        stg.off = SSTEP_PLANT_OFF_ZERO_VOLTAGE; /* as the Scilab prototype */
-        stg.locked = p[P_LOCKED] > 0.5;
-        stg.vbus = p[P_VBUS];
-        stg.fs = p[P_FS];
-        stg.period = p[P_PERIOD];
-        stg.nsub = (unsigned)lround(p[P_NSUB]);
-        stg.dead_ns = p[P_DEAD_NS];
-        stg.rds_on = p[P_RDS];
-        stg.vd = p[P_VD];
-        stg.sw_nstep = (unsigned)lround(p[P_SW_NSTEP]);
-        stg.leg_error_n = (unsigned)nerr;
-        for (int k = 0; k < nerr; k++)
-        {
-            stg.leg_error_i[k] = p[P_NPAR + 2 * nload + k];
-            stg.leg_error_v[k] = p[P_NPAR + 2 * nload + nerr + k];
-        }
-        if (sstep_plant_init(&s->model, &mot, &stg) != 0)
-        {
-            Coserror("Stepper plant block: invalid motor or power stage parameters");
-            return;
-        }
-        s->adc.i_full = p[P_IFULL];
-        s->adc.span = p[P_SPAN];
-        s->adc.zero = p[P_ZERO];
-        s->adc.v_full = p[P_VFULL];
-        s->adc.full = p[P_ADC_FULL];
+        plant_create(blk);
     }
     else if ((flag == OutputUpdate) && (s != NULL))
     {
-        const struct sstep_plant* m = &s->model;
-        double* adc = (double*)blk->outptr[0];
-        double* y = (double*)blk->outptr[1];
-        sstep_plant_adc_sample(m, &s->adc, adc);
-        y[0] = m->x[0];
-        y[1] = m->x[1];
-        y[2] = m->x[2];
-        y[3] = sstep_plant_theta(m);
-        y[4] = m->v[0];
-        y[5] = m->v[1];
-        y[6] = m->peak[0];
-        y[7] = m->peak[1];
+        plant_output(s, (double*)blk->outptr[0], (double*)blk->outptr[1]);
     }
     else if ((flag == StateUpdate) && (blk->nevprt > 0) && (s != NULL))
     {
@@ -463,9 +630,71 @@ void sstep_xcos_plant(scicos_block* blk, scicos_flag flag)
     }
 }
 
+/* sstep_xcos_plant with the load torque (N*m) as a second input, instead of the table of
+ * rpar; a value that is not finite keeps the last one. Output 2 adds the load as the
+ * ninth value. */
+void sstep_xcos_plant_io(scicos_block* blk, scicos_flag flag)
+{
+    struct sil_plant* s = (struct sil_plant*)(*blk->work);
+
+    if (flag == Initialization)
+    {
+        plant_create(blk);
+    }
+    else if ((flag == OutputUpdate) && (s != NULL))
+    {
+        double* y = (double*)blk->outptr[1];
+        plant_output(s, (double*)blk->outptr[0], y);
+        y[8] = s->load;
+    }
+    else if ((flag == StateUpdate) && (blk->nevprt > 0) && (s != NULL))
+    {
+        const double* u = (const double*)blk->inptr[0];
+        const double load = *(const double*)blk->inptr[1];
+        if (isfinite(load))
+        {
+            s->load = load;
+        }
+        sstep_plant_period(&s->model, s->load);
+        sstep_plant_set_compare(&s->model, u, u[4] >= 0.5);
+    }
+    else if (flag == Ending)
+    {
+        free(s);
+        *blk->work = NULL;
+    }
+}
+
 /* ==============================================================================
  * MONITOR BLOCK
  * =============================================================================*/
+
+/* The 19 values of the monitor from the plant and controller signals; rpar: [Ns M]. */
+static void monitor_values(const double* pl, const double* mo, const double* rpar, double* all)
+{
+    const double pole = rpar[0] / 4.0;
+    const double M = rpar[1];
+
+    all[0] = pl[0];
+    all[1] = pl[1];
+    all[2] = mo[5];
+    all[3] = mo[6];
+    all[4] = pl[2] * 60.0 / (2.0 * PI_D);
+    all[5] = (mo[0] - pole * pl[3]) * 180.0 / PI_D;
+    all[6] = mo[0] / (PI_D / 2.0) * M;
+    all[7] = pole * pl[3] / (PI_D / 2.0) * M;
+    all[8] = pl[4];
+    all[9] = pl[5];
+    all[10] = pl[6];
+    all[11] = pl[7];
+    all[12] = mo[3];
+    all[13] = mo[4];
+    all[14] = mo[7];
+    all[15] = mo[8];
+    all[16] = mo[9];
+    all[17] = mo[10] / 100.0;
+    all[18] = mo[11];
+}
 
 /* Inputs:  1 plant [iA iB w theta vA vB |iA|max |iB|max], 2 controller monitor (12)
  * Outputs: 1 currents [iA iB iA_ref iB_ref] (A)
@@ -481,42 +710,50 @@ void sstep_xcos_monitor(scicos_block* blk, scicos_flag flag)
 {
     if (flag == OutputUpdate)
     {
-        const double* pl = (const double*)blk->inptr[0];
-        const double* mo = (const double*)blk->inptr[1];
-        const double pole = blk->rpar[0] / 4.0;
-        const double M = blk->rpar[1];
-        double* cur = (double*)blk->outptr[0];
-        double* rpm = (double*)blk->outptr[1];
-        double* ang = (double*)blk->outptr[2];
-        double* pos = (double*)blk->outptr[3];
         double* all = (double*)blk->outptr[4];
-
-        cur[0] = pl[0];
-        cur[1] = pl[1];
-        cur[2] = mo[5];
-        cur[3] = mo[6];
-        rpm[0] = pl[2] * 60.0 / (2.0 * PI_D);
-        ang[0] = (mo[0] - pole * pl[3]) * 180.0 / PI_D;
-        pos[0] = mo[0] / (PI_D / 2.0) * M;
-        pos[1] = pole * pl[3] / (PI_D / 2.0) * M;
+        monitor_values((const double*)blk->inptr[0], (const double*)blk->inptr[1], blk->rpar, all);
         for (int i = 0; i < 4; i++)
         {
-            all[i] = cur[i];
+            ((double*)blk->outptr[0])[i] = all[i];
         }
-        all[4] = rpm[0];
-        all[5] = ang[0];
-        all[6] = pos[0];
-        all[7] = pos[1];
-        all[8] = pl[4];
-        all[9] = pl[5];
-        all[10] = pl[6];
-        all[11] = pl[7];
-        all[12] = mo[3];
-        all[13] = mo[4];
-        all[14] = mo[7];
-        all[15] = mo[8];
-        all[16] = mo[9];
-        all[17] = mo[10] / 100.0;
-        all[18] = mo[11];
+        ((double*)blk->outptr[1])[0] = all[4];
+        ((double*)blk->outptr[2])[0] = all[5];
+        ((double*)blk->outptr[3])[0] = all[6];
+        ((double*)blk->outptr[3])[1] = all[7];
+    }
+}
+
+/* Inputs:  1 plant (9 values, sstep_xcos_plant_io), 2 controller (15, sstep_xcos_ctrl_io)
+ * Outputs: 1 currents [iA iB iA_ref iB_ref] (A)
+ *          2 speed (rpm)
+ *          3 position [commanded rotor] (microsteps)
+ *          4 load angle (electrical deg)
+ *          5 [state faults stall_level]
+ *          6 the 19 values of sstep_xcos_monitor, then applied command, applied run
+ *            current (A), load torque (N*m), input limit flag
+ * rpar: [Ns M]. Activation inherited from the inputs. */
+void sstep_xcos_monitor_io(scicos_block* blk, scicos_flag flag)
+{
+    if (flag == OutputUpdate)
+    {
+        const double* pl = (const double*)blk->inptr[0];
+        const double* mo = (const double*)blk->inptr[1];
+        double* all = (double*)blk->outptr[5];
+        monitor_values(pl, mo, blk->rpar, all);
+        all[19] = mo[12];
+        all[20] = mo[13];
+        all[21] = pl[8];
+        all[22] = mo[14];
+        for (int i = 0; i < 4; i++)
+        {
+            ((double*)blk->outptr[0])[i] = all[i];
+        }
+        ((double*)blk->outptr[1])[0] = all[4];
+        ((double*)blk->outptr[2])[0] = all[6];
+        ((double*)blk->outptr[2])[1] = all[7];
+        ((double*)blk->outptr[3])[0] = all[5];
+        ((double*)blk->outptr[4])[0] = all[12];
+        ((double*)blk->outptr[4])[1] = all[13];
+        ((double*)blk->outptr[4])[2] = all[18];
     }
 }

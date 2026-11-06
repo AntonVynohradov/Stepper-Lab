@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/test_T09_voltage_limit.sce
 // Description: T09: 8 rev/s with 24 V: the shared-leg stage (Vbus/sqrt(2)) reaches

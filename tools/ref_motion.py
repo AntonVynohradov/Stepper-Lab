@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation
+# Stepper-Lab: Stepper motor model and control simulation
 #
 # Description: Python twin of the motion generator (model/ref_motion.sci): slow loop
 #              (trapezoidal velocity profile, move / run / stop commands, hold

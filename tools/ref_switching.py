@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################################
-# sfs-stepper-sim: Stepper motor model and control simulation
+# Stepper-Lab: Stepper motor model and control simulation
 #
 # Description: Python twin of the switching power stage (model/bridge_switching.sci,
 #              model/stepper_period_sw.sci): centre-aligned PWM legs, dead time with
@@ -264,12 +264,18 @@ def test_t10(m, c):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--stage", help="stage file instead of params/stage_esc1_spice.json")
+    ap.add_argument("--out", help="write the X04 reference to this file, without the T10 test")
     args = ap.parse_args()
-    ok = test_t10(MOTOR, CTRL)
-    if args.write:
+    if args.stage:
+        with open(args.stage, encoding="utf-8") as sf:
+            spice = json.load(sf)
+        STAGE.update(dead_ns=spice["dead_eff_ns"], rds_on=spice["r_leg"], vd=spice["vd"])
+    ok = True if args.out else test_t10(MOTOR, CTRL)
+    if args.write or args.out:
         brd = stage_board("shared", "switching")
         log, ext = sim_closed_loop(MOTOR, brd, CTRL, ref_speed(2.0, 4.0, MOTOR, 0.01), 0.02)
-        path = os.path.join(ROOT, "tests", "reference", "x04_switching_shared.csv")
+        path = args.out or os.path.join(ROOT, "tests", "reference", "x04_switching_shared.csv")
         with open(path, "w", newline="\n") as f:
             f.write("# X04 reference: closed current loop, switching shared-leg stage, 24 V, "
                     f"20 kHz, dead time {STAGE['dead_ns']:.1f} ns, R {STAGE['rds_on'] * 1e3:.3f} "
@@ -280,7 +286,7 @@ def main():
                 r, e = log[k], ext[k]
                 f.write(f"{r[0]:.8f},{r[1]:.12e},{r[2]:.12e},{r[3]:.12e},{r[4]:.12e},"
                         f"{e[1]:.12e},{e[3]:.12e},{e[4]:.12e},{e[5]:.12e}\n")
-        print(f"wrote {os.path.relpath(path, ROOT)}")
+        print(f"wrote {path if args.out else os.path.relpath(path, ROOT)}")
     return 0 if ok else 1
 
 

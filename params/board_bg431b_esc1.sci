@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        params/board_bg431b_esc1.sci
 // Description: STMicroelectronics B-G431B-ESC1 used as a two-phase driver
@@ -41,7 +41,7 @@ function brd = board_bg431b_esc1()
     // Switching stage values from ngspice (sfs-stepper-power-spice, generated file
     // params/stage_esc1_spice.sci): the timer dead time is 500 ns (assumption), but
     // the driver and MOSFET delays shorten its effect on the phase voltage.
-    stg = stage_esc1_spice();
+    stg = stage_active();   // the file selected in the window, else stage_esc1_spice()
     brd.dead_ns       = stg.dead_eff_ns;    // ns, effective dead time (model and
                                             // Stepper-C dead_time_ns, for compensation)
     brd.dead_timer_ns = stg.dead_timer_ns;  // ns, dead time set in the timer
@@ -51,6 +51,6 @@ function brd = board_bg431b_esc1()
     // Averaged stage: leg voltage error against the leg current (ngspice, measured at
     // stg.vbus / stg.fs). [] = ideal legs (default, as the Scilab prototype);
     // brd.leg_error = stg.leg_error adds dead time, diodes and leg resistance to the
-    // averaged model (Xcos plant block and the firmware simulation of sfs-stepper-driver).
+    // averaged model (Xcos plant block and builds of the plant for other targets).
     brd.leg_error     = [];
 endfunction

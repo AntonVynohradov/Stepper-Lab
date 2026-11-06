@@ -1,9 +1,9 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        start_sil.sce
 // Description: Opens the software-in-the-loop model in Xcos: the Stepper-C library
-//              (C code of sfs-stepper-ctrl) drives the stepper motor model.
+//              (C code of Stepper-C) drives the stepper motor model.
 //
 // How to use (no Scilab knowledge needed):
 //   1. Open this file in Scilab (double-click, or File > Open) and press F5

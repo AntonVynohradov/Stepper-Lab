@@ -1,5 +1,5 @@
 // =============================================================================
-// sfs-stepper-sim: Stepper motor model and control simulation (Scilab/Xcos)
+// Stepper-Lab: Stepper motor model and control simulation (Scilab/Xcos)
 //
 // File:        tests/sim_stall_cases.sci
 // Description: Test helper: scenarios of the stall detection tests (T13, S06),
@@ -23,6 +23,7 @@ function cs = sim_stall_cases()
     //     locked   1: rotor locked
     //     mp       motion settings, mot plant motor, mot_c motor of the controller
     //     topology power stage topology
+    //     vbus     bus voltage [V], also the nominal voltage of the configuration
     //     proto_sw %t: also run the prototype on the switching stage (slow)
     //     exact    %f: an unstable operating point (mid-band limit cycle that grows
     //              from the ADC quantization): SIL and prototype are compared by
@@ -33,12 +34,21 @@ function cs = sim_stall_cases()
 
     function s = mk(name, trip, cmds, T)
         s = struct("name", name, "trip", trip, "cmds", cmds, "T", T, "locked", 0, ..
-                   "mp", mp, "mot", mot, "mot_c", mot, "topology", "shared", "proto_sw", %f, ..
-                   "exact", %t);
+                   "mp", mp, "mot", mot, "mot_c", mot, "topology", "shared", "vbus", 24, ..
+                   "proto_sw", %f, "exact", %t);
+    endfunction
+
+    function c = stairs(c0, t0, TL)
+        // commands c0, then the load up to TL in steps of 0.02 N*m every 20 ms
+        c = c0;
+        nl = round(abs(TL) / 0.02);
+        for kl = 1:nl
+            c = [c; t0 + (kl - 1) * 0.02, 4, kl * 0.02 * sign(TL)];
+        end
     endfunction
 
     // ---- must trip
-    // reported case (sfs-stepper-driver): 0.12 N*m held at 1.5 A, not at the 0.5 A hold
+    // a reported case: 0.12 N*m held at 1.5 A, not at the 0.5 A hold
     // current after 500 ms
     s = mk("stall at hold 0.12 N*m, 1.5 -> 0.5 A", %t, [0, 4, 0.12], 0.62);
     s.mp.i_run = 1.5;
@@ -59,8 +69,46 @@ function cs = sim_stall_cases()
     s.locked = 1;
     s.proto_sw = %t;
     cs($ + 1) = s;
+    // heavy axis (load inertia) torn out of synchronism: the rotor slips slowly enough for
+    // the detector, the back-EMF vector turns in the commanded frame
+    for jx = [20, 100]
+        s = mk(msprintf("heavy axis J x%d, 0.5 N*m at 1 rev/s", jx), %t, [0, 2, 3200; 0.15, 4, 0.5], 0.5);
+        s.mot.J = jx * mot.J;
+        cs($ + 1) = s;
+    end
+    s = mk("heavy axis J x100, -0.5 N*m at -1 rev/s", %t, [0, 2, -3200; 0.15, 4, -0.5], 0.5);
+    s.mot.J = 100 * mot.J;
+    cs($ + 1) = s;
+    s = mk("heavy axis J x20, 0.5 N*m at 3 rev/s", %t, [0, 2, 9600; 0.25, 4, 0.5], 0.6);
+    s.mot.J = 20 * mot.J;
+    cs($ + 1) = s;
+    s = mk("heavy axis J x100, 0.5 N*m at 1 rev/s, R +30 %, L -20 %", %t, [0, 2, 3200; 0.15, 4, 0.5], 0.5);
+    s.mot.J = 100 * mot.J;
+    s.mot.R = 1.3 * mot.R;
+    s.mot.L = 0.8 * mot.L;
+    cs($ + 1) = s;
 
     // ---- must not trip
+    // heavy load held in synchronism, hot winding and saturated inductance
+    for c = [1, 0.30; -1, -0.30; 3, 0.30; -3, -0.30]'
+        s = mk(msprintf("load %.2f N*m at %d rev/s, R +30 %%, L -20 %%", c(2), c(1)), %f, ..
+               stairs([0, 2, c(1) * 3200], 0.25, c(2)), 0.7);
+        s.mot.R = 1.3 * mot.R;
+        s.mot.L = 0.8 * mot.L;
+        cs($ + 1) = s;
+    end
+    // voltage limit: lower bus voltage, larger inductance
+    for c = [8, 18, 1; 9, 20, 1; 11, 24, 1.2]'
+        v = round(c(1) * mot.Ns * mp.M);
+        s = mk(msprintf("%d rev/s, %d V, L x%.1f", c(1), c(2), c(3)), %f, [0, 2, v], 0.5);
+        s.vbus = c(2);
+        s.mot.L = c(3) * mot.L;
+        s.mp.v_max = v;
+        s.mp.acc = round(v / 0.2);
+        s.mp.dec = s.mp.acc;
+        s.exact = c(3) == 1;
+        cs($ + 1) = s;
+    end
     // enable and run -> hold current steps at rest, 2 -> 1 A, R +30 %, L -20 %
     s = mk("enable, run -> hold 2 -> 1 A, R +30 %, L -20 %", %f, zeros(0, 3), 0.3);
     s.mot.R = 1.3 * mot.R;
