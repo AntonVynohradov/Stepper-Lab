@@ -50,7 +50,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 AUTHOR = "Anton Vynohradov"
 COMPANY = "SystemFromScratch&reg;"
-EMAIL = "avynohradov@systemfromscratch.com"
+EMAIL = "contact@systemfromscratch.com"
 ORCID = "0009-0005-6965-0911"
 BRAND_LOGO = "assets/images/brand/systemfromscratch-logo-on-dark.png"
 
