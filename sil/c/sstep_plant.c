@@ -57,19 +57,58 @@ typedef sstep_plant_real_t real;
  * MOTOR
  * =============================================================================*/
 
-/* open: windings open (outputs off, SSTEP_PLANT_OFF_OPEN), the currents stay 0 */
-static void deriv(const struct sstep_plant* p, const real* s, real va, real vb, real tl,
-                  int open, real* d)
+/* sin and cos of a + d from sin(a) = s0, cos(a) = c0: the RK4 stages move the angle by
+ * a fraction of a step only, so the angle addition with the Taylor series of d (exact to
+ * double precision for |d| < 0.25: the first left-out terms are below 3e-18) replaces two
+ * library calls. A larger step uses the library. On a Cortex-M4F the library calls took
+ * about half of the model's time. */
+#define SHIFT_TAYLOR_MAX R(0.25)
+
+/* Taylor coefficients 1/n! (Horner in d^2): multiplications only, a division costs
+ * as much as several of them on an FPU */
+#define T3 R(1.6666666666666666e-1)  /* 1/3!  */
+#define T5 R(8.3333333333333332e-3)  /* 1/5!  */
+#define T7 R(1.9841269841269841e-4)  /* 1/7!  */
+#define T9 R(2.7557319223985893e-6)  /* 1/9!  */
+#define T11 R(2.5052108385441720e-8) /* 1/11! */
+#define T2 R(0.5)                    /* 1/2!  */
+#define T4 R(4.1666666666666664e-2)  /* 1/4!  */
+#define T6 R(1.3888888888888889e-3)  /* 1/6!  */
+#define T8 R(2.4801587301587302e-5)  /* 1/8!  */
+#define T10 R(2.7557319223985888e-7) /* 1/10! */
+#define T12 R(2.0876756987868100e-9) /* 1/12! */
+
+static void sincos_shift(real a, real s0, real c0, real d, real* s, real* c)
+{
+    if (FABS(d) < SHIFT_TAYLOR_MAX)
+    {
+        const real d2 = d * d;
+        const real sd = d * (R(1.0) - d2 * (T3 - d2 * (T5 - d2 * (T7 - d2 * (T9 - d2 * T11)))));
+        const real cd =
+            R(1.0) - d2 * (T2 - d2 * (T4 - d2 * (T6 - d2 * (T8 - d2 * (T10 - d2 * T12)))));
+        *s = s0 * cd + c0 * sd;
+        *c = c0 * cd - s0 * sd;
+    }
+    else
+    {
+        *s = SIN(a + d);
+        *c = COS(a + d);
+    }
+}
+
+/* open: windings open (outputs off, SSTEP_PLANT_OFF_OPEN), the currents stay 0.
+ * sn, cs: sin and cos of s[3]. */
+static void deriv(const struct sstep_plant* p, const real* s, real sn, real cs, real va,
+                  real vb, real tl, int open, real* d)
 {
     const struct sstep_plant_motor* m = &p->motor;
-    const real sn = SIN(s[3]);
-    const real cs = COS(s[3]);
     real te = m->kt * (-s[0] * sn + s[1] * cs);
     real tf = m->b * s[2];
 
     if (m->td != R(0.0))
     {
-        te -= m->td * SIN(R(4.0) * s[3]);
+        /* sin(4 pe) = 2 sin(2 pe) cos(2 pe) = 4 sn cs (cs^2 - sn^2) */
+        te -= m->td * (R(4.0) * sn * cs * (cs * cs - sn * sn));
     }
     if (m->tc != R(0.0))
     {
@@ -111,15 +150,22 @@ static void rk4(struct sstep_plant* p, real va, real vb, real tl, int open, real
 {
     real k1[4], k2[4], k3[4], k4[4], y[4];
     real* x = p->x;
+    const real s0 = SIN(x[3]); /* once per step; the stages shift it (sincos_shift) */
+    const real c0 = COS(x[3]);
+    real sn;
+    real cs;
     int i;
 
-    deriv(p, x, va, vb, tl, open, k1);
+    deriv(p, x, s0, c0, va, vb, tl, open, k1);
     for (i = 0; i < 4; i++) { y[i] = x[i] + h / R(2.0) * k1[i]; }
-    deriv(p, y, va, vb, tl, open, k2);
+    sincos_shift(x[3], s0, c0, h / R(2.0) * k1[3], &sn, &cs);
+    deriv(p, y, sn, cs, va, vb, tl, open, k2);
     for (i = 0; i < 4; i++) { y[i] = x[i] + h / R(2.0) * k2[i]; }
-    deriv(p, y, va, vb, tl, open, k3);
+    sincos_shift(x[3], s0, c0, h / R(2.0) * k2[3], &sn, &cs);
+    deriv(p, y, sn, cs, va, vb, tl, open, k3);
     for (i = 0; i < 4; i++) { y[i] = x[i] + h * k3[i]; }
-    deriv(p, y, va, vb, tl, open, k4);
+    sincos_shift(x[3], s0, c0, h * k3[3], &sn, &cs);
+    deriv(p, y, sn, cs, va, vb, tl, open, k4);
     for (i = 0; i < 4; i++)
     {
         x[i] = x[i] + h / R(6.0) * (k1[i] + R(2.0) * k2[i] + R(2.0) * k3[i] + k4[i]);

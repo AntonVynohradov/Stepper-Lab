@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `sil/c/sstep_plant.c`: `sin` / `cos` of the electrical angle once per RK4 step instead of in each
+  of the four stages; the stages shift them with the angle addition (Taylor series of the shift,
+  exact to double precision below 0.25 rad, the library above), and `sin(4 pe)` comes from the
+  double-angle identity. Same equations; one step differs by 1 to 2 ulp. On a Cortex-M4F (the
+  simulated motor of the Doppelstep firmware) the fast loop with the model drops from 47.5 to
+  37 µs of the 50 µs PWM period during a move.
 - Public name: **Stepper-Lab** (file banners, window, README).
 - `README.md` is short; its content moved to the documentation.
 - `sil_report`: larger figure, legends inside the panels, scales from the run up to shortly after the
