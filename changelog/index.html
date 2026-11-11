@@ -1241,6 +1241,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><code>sil/c/sstep_plant.c</code>: <code>sin</code> / <code>cos</code> of the electrical angle once per RK4 step instead of in each
+  of the four stages; the stages shift them with the angle addition (Taylor series of the shift,
+  exact to double precision below 0.25 rad, the library above), and <code>sin(4 pe)</code> comes from the
+  double-angle identity. Same equations; one step differs by 1 to 2 ulp. On a Cortex-M4F (the
+  simulated motor of the Doppelstep firmware) the fast loop with the model drops from 47.5 to
+  37 µs of the 50 µs PWM period during a move.</li>
 <li>Public name: <strong>Stepper-Lab</strong> (file banners, window, README).</li>
 <li><code>README.md</code> is short; its content moved to the documentation.</li>
 <li><code>sil_report</code>: larger figure, legends inside the panels, scales from the run up to shortly after the
